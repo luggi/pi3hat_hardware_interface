@@ -67,6 +67,7 @@ namespace pi3hat_hardware_interface
             CHEETAH,    // MIT Mini Cheetah actuators, SteadyWin, CubeMars
             MYACTUATOR, // MyActuator, LKMTech
             MOTEUS      // Moteus (non-FD CAN)
+            ODRIVE      // ODrive
         };
 
         const unsigned char cheetahEnableMsg[8] = {0xFF, 0xFF, 0xFF, 0xFF,

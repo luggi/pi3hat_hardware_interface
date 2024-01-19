@@ -22,6 +22,12 @@
 
 namespace pi3hat_hardware_interface
 {
+    /**
+     * @brief on_init
+     * 
+     * @param info defines the hardware interface configuration
+     * @return hardware_interface::CallbackReturn 
+     */
     hardware_interface::CallbackReturn Pi3HatHardwareInterface::on_init(
         const hardware_interface::HardwareInfo &info)
     {
@@ -55,6 +61,11 @@ namespace pi3hat_hardware_interface
             else if ("moteus" == joint.parameters.at("can_protocol"))
             {
                 hw_actuator_can_protocols_.push_back(CanProtocol::MOTEUS);
+            }
+            // added ODrive CAN protocol hardware selection
+            else if ("odrive" == joint.parameters.at("can_protocol"))
+            {
+                hw_actuator_can_protocols_.push_back(CanProtocol::ODRIVE);
             }
             else
             {
@@ -104,8 +115,14 @@ namespace pi3hat_hardware_interface
         pi3hat_input_.rx_can = rx_can_frames_span_;
         mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_can_frames_span_(tx_can_frames_, info_.joints.size()); 
         pi3hat_input_.tx_can = tx_can_frames_span_;
+        // rx_can and tx_can are Spans of CanFrames, which is a struct with the following fields:
+        //      uint8_t bus;
+        //      uint8_t id;
+        //      uint8_t size;
+        //      bool expect_reply;
+        //      uint8_t data[8];
 
-        // Set up the CAN configuration
+        // onInit() -> Set up the CAN configuration
         for (uint i = 0; i < info_.joints.size(); i++)
         {
             config.can[hw_actuator_can_channels_[i] - 1] = can_config;
@@ -115,10 +132,10 @@ namespace pi3hat_hardware_interface
             pi3hat_input_.tx_can[i].size = 8;
         }
 
-        // Initialize the Pi3Hat
+        // onInit() -> Initialize the Pi3Hat
         pi3hat_ = new mjbots::pi3hat::Pi3Hat(config);
 
-        // Configure realtime scheduling
+        // onInit() -> Configure realtime scheduling
         {
             int realtime_cpu = 0;
             cpu_set_t cpuset = {};
@@ -147,25 +164,36 @@ namespace pi3hat_hardware_interface
             }
         }
 
+        // onInit() -> Set all actuators to IDLE
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
             switch (hw_actuator_can_protocols_[i])
             {
+//TODO: Add support for other CAN protocols
             case CanProtocol::CHEETAH:
                 std::copy(std::begin(cheetahSetIdleCmdMsg), std::end(cheetahSetIdleCmdMsg), std::begin(pi3hat_input_.tx_can[i].data));
                 break;
+            case CanProtocol::ODRIVE:
+                //TODO set pi3hat_input_.tx_can[i].data and pi3hat_input_.tx_can[i].id to ODrive CAN protocol idle command
+
             }
         }
         pi3hat_->Cycle(pi3hat_input_);
         sleep(1);
 
+        // onInit() -> Set the zero position for each actuator
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
             switch (hw_actuator_can_protocols_[i])
             {
+//TODO: Add support for other CAN protocols
             case CanProtocol::CHEETAH:
                 std::copy(std::begin(cheetahSetZeroPositionMsg), std::end(cheetahSetZeroPositionMsg), std::begin(pi3hat_input_.tx_can[i].data));
                 break;
+            case CanProtocol::ODRIVE:
+            {
+                //TODO set pi3hat_input_.tx_can[i].data and pi3hat_input_.tx_can[i].id to ODrive CAN protocol set zero position command
+            }
             default:
                 RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
                 return hardware_interface::CallbackReturn::ERROR;
@@ -178,13 +206,19 @@ namespace pi3hat_hardware_interface
             sleep(1);
         }
 
+        // onInit() -> Enable all actuators
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
             switch (hw_actuator_can_protocols_[i])
             {
+//TODO: Add support for other CAN protocols
             case CanProtocol::CHEETAH:
                 std::copy(std::begin(cheetahEnableMsg), std::end(cheetahEnableMsg), std::begin(pi3hat_input_.tx_can[i].data));
                 break;
+            case CanProtocol::ODRIVE:
+            {
+                //TODO set pi3hat_input_.tx_can[i].data and pi3hat_input_.tx_can[i].id to ODrive CAN protocol axis closed loop control command
+            }
             default:
                 RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
                 return hardware_interface::CallbackReturn::ERROR;
@@ -292,6 +326,7 @@ namespace pi3hat_hardware_interface
         {
             switch (hw_actuator_can_protocols_[i])
             {
+//TODO: Add support for other CAN protocols
             case CanProtocol::CHEETAH:
                 // We send a command of all zeroes to the actuator before disabling it
                 // This is to prevent the actuator from moving if we re-enable it later
@@ -305,6 +340,7 @@ namespace pi3hat_hardware_interface
         {
             switch (hw_actuator_can_protocols_[i])
             {
+//TODO: Add support for other CAN protocols
             case CanProtocol::CHEETAH:
                 std::copy(std::begin(cheetahDisableMsg), std::end(cheetahDisableMsg), std::begin(pi3hat_input_.tx_can[i].data));
                 break;
@@ -324,10 +360,11 @@ namespace pi3hat_hardware_interface
         // Reading is done in the write() method
         return hardware_interface::return_type::OK;
     }
-
+    
     hardware_interface::return_type Pi3HatHardwareInterface::write(
         const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
     {
+        // write() -> Update the actuator states and assemble CAN frames
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
             if (std::isnan(hw_command_positions_[i]) || std::isnan(hw_command_velocities_[i]) || std::isnan(hw_command_efforts_[i]) || std::isnan(hw_command_kps_[i]) || std::isnan(hw_command_kds_[i]))
@@ -338,6 +375,7 @@ namespace pi3hat_hardware_interface
 
             switch (hw_actuator_can_protocols_[i])
             {
+// TODO: Add support for other CAN protocols
             case CanProtocol::CHEETAH:
                 {
                     // constrain commands to the user-defined limits
@@ -375,6 +413,7 @@ namespace pi3hat_hardware_interface
                     int t_int =
                         double_to_uint(tau_ff, -hw_actuator_effort_scales_[i], hw_actuator_effort_scales_[i], 12);
 
+                    // TODO This is the actual CAN data message that is sent to the actuator.
                     // pack ints into the can message
                     pi3hat_input_.tx_can[i].data[0] = p_int >> 8;
                     pi3hat_input_.tx_can[i].data[1] = p_int & 0xFF;
@@ -436,7 +475,7 @@ namespace pi3hat_hardware_interface
             hw_state_imu_linear_acceleration_[2] = pi3hat_input_.attitude->accel_mps2.z;
         }
 
-        // Read and update the actuator states if data is available
+        // write() -> Read and update the actuator states if data is available
         if (result.rx_can_size > 0)
         {
             for (auto i = 0u; i < hw_state_positions_.size(); i++)
@@ -447,6 +486,7 @@ namespace pi3hat_hardware_interface
                     // j is the index of the can frame in the pi3hat input
                     switch (hw_actuator_can_protocols_[i])
                     {
+//TODO: Add support for other CAN protocols
                     case CanProtocol::CHEETAH:
                         {
                             int can_id = pi3hat_input_.rx_can[j].data[0];
@@ -466,7 +506,12 @@ namespace pi3hat_hardware_interface
                                 hw_state_positions_[i] = unwrap_angle(p_double, hw_state_positions_[i], -hw_actuator_position_scales_[i], hw_actuator_position_scales_[i]);
                             }
                             break;
-                        }                            
+                        }  
+                    case CanProtocol::ODRIVE:
+                        {
+                            //TODO
+                            break;
+                        }                          
                     default:
                         RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to receive: unknown CAN protocol");
                         break;
