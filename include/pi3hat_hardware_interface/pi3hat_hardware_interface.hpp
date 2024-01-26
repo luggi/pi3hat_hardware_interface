@@ -27,6 +27,20 @@ namespace pi3hat_hardware_interface
     public:
         RCLCPP_SHARED_PTR_DEFINITIONS(Pi3HatHardwareInterface)
 
+        /**
+         * @brief   Configures all 
+         * 
+         * @details on_init is expected to vary depending on the URDF file. 
+         *          The SystemInterface::on_init(info) call fills out the info 
+         *          object with specifics from the URDF. For example, 
+         *          the info object has fields for joints, sensors, gpios, and more. 
+         *          Suppose the sensor field has a name value of tcp_force_torque_sensor. 
+         *          Then the on_init must try to establish communication with that sensor. 
+         *          If it fails, then an error value is returned.
+         * 
+         * @param info 
+         * @return hardware_interface::CallbackReturn 
+         */
         hardware_interface::CallbackReturn on_init(
             const hardware_interface::HardwareInfo &info) override;
 
