@@ -64,6 +64,9 @@ struct CanFrame {
   /// If true, then a reply will be expected for this frame on the
   /// same bus.
   bool expect_reply = false;
+
+  // indicates whether this CanFrame is valid or not
+  bool valid = true;
 };
 
 struct Quaternion {

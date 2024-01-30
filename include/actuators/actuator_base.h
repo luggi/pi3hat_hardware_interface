@@ -12,6 +12,8 @@ class ActuatorBase {
 public:
     // Constructor
     ActuatorBase(
+        int can_id,
+        int can_bus,
         const std::string name,
         const int direction,
         const float zero_offset,
@@ -24,10 +26,10 @@ public:
     );
 
     // Virtual destructor to ensure proper cleanup of derived classes
-    virtual ~ActuatorBase();
+    virtual ~ActuatorBase() = default;
 
     // Configuration function to initialize the PiHat for given CAN protocol and bus
-    virtual bool configure(const MotorConfig config) = 0;
+    virtual bool configure(const MotorConfig config);
 
     // ****************************************************** 
     // Virtual functions to be implemented by derived classes
@@ -45,7 +47,7 @@ public:
     virtual bool on_init() = 0;
 
     // Virtual function to command controller state
-    virtual void setState() = 0; 
+    virtual void setState(ActuatorState state) = 0; 
 
     /**
      * @brief Forms a CAN frame to send a position command to the motor controller
@@ -74,20 +76,20 @@ public:
      * @brief set the kp for pd loop
      * @param kp position gain in N m/rad
      */
-    void set_kp(float kp){kp_ = kp;}
+    virtual void set_kp(float kp){kp_ = kp;}
 
     /**
      * @brief set the kd for pd loop
      * @param kd velocity gain in N m s/rad
      */
-    void set_kd(float kd){kd_ = kd;}
+    virtual void set_kd(float kd){kd_ = kd;}
 
     /**
      * @brief set the ki for the pd loop
      * @param ki integral gain in N m s^2/rad
      * 
      */
-    void set_ki(float ki){ki_ = ki;}
+    virtual void set_ki(float ki){ki_ = ki;}
 
     // Virtual function for requesting data from the motor controller
     virtual void sendQueryCommand() = 0;
@@ -99,17 +101,19 @@ public:
     virtual void ESTOP() = 0;
 
     // Virtual function to read an arbitrary CAN frame
-    virtual void readCANFrame() = 0;
-
-
+    virtual void readCANFrame(mjbots::pi3hat::CanFrame frame) = 0;
 
     /**
      * @brief Creates a CAN frame to clear errors on the motor controller
      */
     virtual void clearErrors() = 0;
 
+    virtual MotorState getMotorState() {return motor_state_;}
+
 protected:
     // Actuator Parameters
+    int can_id_ = 0;                /// the can id of this joint's motor (range depends on controller type)
+    int can_bus_ = 0;               /// the can bus the motor communicates on [1-4]
     std::string name_ = "";         /// The joint name
     int direction_ = 1;             /// 1 or -1, flips positive rotation direction
     float zero_offset_ = 0.0f;      /// offset [rad] of joint zero position
@@ -120,7 +124,8 @@ protected:
 
     // Actuator State (motor state configuration)
     MotorState motor_state_;
-
+    MotorCommand motor_command_;
+    
     // Joint State/Commands (includes params like gear ratio, direction and offset)
     float position_;                /// position of the joint [rad]
     float velocity_;                /// velocity of the joint [rad/s]
@@ -144,16 +149,17 @@ protected:
     float max_torque_ = std::numeric_limits<float>::infinity();
     float pos_min_ = -std::numeric_limits<float>::infinity();
     float pos_max_ = std::numeric_limits<float>::infinity();
-
-    // Output CAN frame
-    mjbots::pi3hat::CanFrame can_frame_;
-
-private: 
-    mjbots::pi3hat::Pi3Hat::Input pi3hat_input_;
+ 
+// TODO: how are we handling this input object? It should be treated like a queue, Unless
+// it gets fully flushed every cycle command? I think that it does get flushed by cycle, so we
+// can instead fill it from index 0 every command.
+    mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_frames_;
 
 };
 
 /**
+ * @param can_id        /// the can id of this joint's motor (range depends on controller type)
+ * @param can_bus       /// the can bus the motor communicates on [1-4]
  * @param name          /// The joint name
  * @param direction     /// 1 or -1, flips positive rotation direction (Default:1)
  * @param zero_offset   /// offset [rad] of joint zero position (Default:0) 
@@ -166,6 +172,8 @@ private:
  * 
  */
 struct MotorConfig {
+    int can_id = 0;
+    int can_bus = 0;
     std::string name = "";
     int direction = 1;
     float zero_offset = 0.0f;
@@ -177,13 +185,39 @@ struct MotorConfig {
     int soft_start_duration_ms = 1;
 };
 
-struct MotorState {
-    bool armed = false;
-    bool error = false;
-    bool calibration_ok = false;
-    bool motor_ready = false;
-    int current_state = 0;
-    int control_mode = 0;
+/**
+ * @brief Enumeration of basic motor states exposed to a user
+ * 
+ */
+enum ActuatorState {
+    ERROR           = 0,
+    DISARMED        = 1,
+    ARMED           = 2,
+    POSITION_MODE   = 3,
+    VELOCITY_MODE   = 4,
+    TORQUE_MODE     = 5,
 };
 
-#endif // ACTUATOR_BASE_H
+struct MotorState {
+    bool connected = false;
+    bool error = false;
+    int error_reason = 0;
+    float position_ = 0.0f;
+    float velocity_ = 0.0f;
+    float torque_ = 0.0f;
+    float temperature = 0.0f;
+};
+
+struct MotorCommand {
+    ActuatorState actuator_state_ = ActuatorState::DISARMED;
+    float position_ = 0.0f;
+    float velocity_ = 0.0f;
+    float torque_ = 0.0f;
+    float ff_velocity_ = 0.0f;
+    float ff_torque_ = 0.0f;
+    float kp_ = 0.0f;
+    float kd_ = 0.0f;
+    float ki_ = 0.0f;
+};
+
+#endif //ACTUATOR_BASE_H

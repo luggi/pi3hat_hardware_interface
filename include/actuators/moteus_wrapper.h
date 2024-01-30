@@ -1,7 +1,7 @@
 #pragma once
 
 // #include "moteus_protocol.h" 
-#include "protocols/actuator_base.h"
+#include "actuator_base.h"
 
 class Moteus_Protocol : public ActuatorBase {
 public:

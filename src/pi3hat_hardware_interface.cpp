@@ -48,24 +48,34 @@ namespace pi3hat_hardware_interface
         hw_command_kps_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
         hw_command_kds_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
 
+        // Determine which actuator types are in use and determine the span size required.
         for (const hardware_interface::ComponentInfo &joint : info_.joints)
         {
             if ("cheetah" == joint.parameters.at("can_protocol"))
             {
+                // throw an error since this isnt supported yet
                 hw_actuator_can_protocols_.push_back(CanProtocol::CHEETAH);
+                tx_capacity_ += TxAllocation::CHEETAH;
+                // TODO: what is happening with rx_allocation
             }
             else if ("myactuator" == joint.parameters.at("can_protocol"))
-            {
+            {   
+                // throw an error since this isnt supported yet
                 hw_actuator_can_protocols_.push_back(CanProtocol::MYACTUATOR);
+                tx_capacity_ += TxAllocation::MYACTUATOR;
+                // TODO: what is happening with rx_allocation
             }
             else if ("moteus" == joint.parameters.at("can_protocol"))
             {
                 hw_actuator_can_protocols_.push_back(CanProtocol::MOTEUS);
+                tx_capacity_ += TxAllocation::MOTEUS;
+                // TODO: what is happening with rx_allocation
             }
-            // added ODrive CAN protocol hardware selection
             else if ("odrive" == joint.parameters.at("can_protocol"))
             {
                 hw_actuator_can_protocols_.push_back(CanProtocol::ODRIVE);
+                tx_capacity_ += TxAllocation::ODRIVE;
+                // TODO: what is happening with rx_allocation
             }
             else
             {
@@ -83,6 +93,9 @@ namespace pi3hat_hardware_interface
             hw_actuator_kd_scales_.push_back(std::stod(joint.parameters.at("kd_scale")));
             hw_actuator_axis_directions_.push_back(std::stoi(joint.parameters.at("axis_direction")));
             hw_actuator_position_offsets_.push_back(std::stod(joint.parameters.at("position_offset")));
+            hw_actuator_gear_ratios_.push_back(std::stod(joint.parameters.at("gear_ratio")));
+            hw_actuator_torque_constants_.push_back(std::stod(joint.parameters.at("torque_constant")));
+            hw_actuator_soft_start_durations_ms_.push_back(std::stoi(joint.parameters.at("soft_start_duration_ms")));
 
             // Set limits for each joint
             hw_actuator_position_mins_.push_back(std::stod(joint.parameters.at("position_min")));
@@ -93,6 +106,7 @@ namespace pi3hat_hardware_interface
             hw_actuator_kd_maxs_.push_back(std::stod(joint.parameters.at("kd_max")));
         }
 
+        // TODO: To fully support moteus this should use the fd frame.
         // Configure the Pi3Hat CAN for non-FD mode without bitrate switching or automatic retranmission
         mjbots::pi3hat::Pi3Hat::CanConfiguration can_config;
         can_config.fdcan_frame = false;
@@ -108,19 +122,59 @@ namespace pi3hat_hardware_interface
         config.mounting_deg.pitch = std::stod(info_.hardware_parameters.at("imu_mounting_deg.pitch"));
         config.mounting_deg.roll = std::stod(info_.hardware_parameters.at("imu_mounting_deg.roll"));
 
-        // Initialize the Pi3Hat input
+        // Initialize the Pi3Hat input object
         pi3hat_input_ = mjbots::pi3hat::Pi3Hat::Input();
         pi3hat_input_.attitude = &attitude_;
-        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> rx_can_frames_span_(rx_can_frames_, MAX_NUM_CAN_FRAMES); 
+        // Resize the rx_can and tx_can spans to the number of actuators and protocols allocation
+        tx_can_frames_.resize(tx_capacity_);
+        rx_can_frames_.resize(rx_capacity_);
+
+        // Create and assign Spans to the rx_can and tx_can fields of the Pi3Hat input object
+        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> rx_can_frames_span_(rx_can_frames_, rx_capacity_); 
         pi3hat_input_.rx_can = rx_can_frames_span_;
-        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_can_frames_span_(tx_can_frames_, info_.joints.size()); 
+        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_can_frames_span_(tx_can_frames_, tx_capacity_); 
         pi3hat_input_.tx_can = tx_can_frames_span_;
+
         // rx_can and tx_can are Spans of CanFrames, which is a struct with the following fields:
         //      uint8_t bus;
         //      uint8_t id;
         //      uint8_t size;
         //      bool expect_reply;
         //      uint8_t data[8];
+
+        // onInit() -> Initialize the CAN Protocol Interfaces
+        for (uint i = 0; i < info_.joints.size(); i++)
+        {
+            switch (hw_actuator_can_protocols_[i])
+            {
+                case CanProtocol::MOTEUS:
+                {
+                    // TODO: implement
+                }
+                case CanProtocol::ODRIVE:
+                {
+                    // Create new actuator and add shared pointer to vector
+                    hw_actuators_.push_back(
+                        std::make_shared<ODriveActuator>(
+                            hw_actuator_can_ids_[i],
+                            hw_actuator_can_channels_[i],
+                            info_.joints[i].name, // TODO: either add this parameter to this class and the URDF or create a nameless constructor in actuator
+                            hw_actuator_axis_directions_[i],
+                            hw_actuator_position_offsets_[i],
+                            hw_actuator_gear_ratios_[i],
+                            hw_actuator_effort_maxs_[i],
+                            hw_actuator_torque_consts_[i],
+                            hw_actuator_position_mins_[i],
+                            hw_actuator_position_maxs_[i],
+                            hw_actuator_soft_start_durations_ms_[i]
+                        )
+                    );
+
+                    // allocate the actuator's outgoing CAN Frame Span and assign it
+                    hw_actuators_[i]->setTxSpan(allocateTxSpan(TxAllocation::ODRIVE));
+                }
+            }
+        }
 
         // onInit() -> Set up the CAN configuration
         for (uint i = 0; i < info_.joints.size(); i++)
@@ -525,6 +579,18 @@ namespace pi3hat_hardware_interface
         // }
 
         return hardware_interface::return_type::OK;
+    }
+
+    mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> Pi3HatHardwareInterface::allocateTxSpan(size_t size) {
+        // Implementation to allocate a Span for Tx
+        // This could be more sophisticated to handle non-contiguous allocations
+        size_t start = nextTxStart;
+        if (start + size <= tx_can_frames_.size()) {
+            nextTxStart += size;
+            return mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>(&tx_can_frames_[start], size);
+        } else {
+            // TODO: throw error (or otherwise handle the size problem) and log in ROS2 logger.
+        }
     }
 
     int Pi3HatHardwareInterface::double_to_uint(double x, double x_min, double x_max,

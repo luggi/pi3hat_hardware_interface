@@ -1304,6 +1304,9 @@ class Pi3Hat::Impl {
       bus_packets.resize(0);
     }
     for (size_t i = 0; i < input.tx_can.size(); i++) {
+      // skip invalid frames
+      if (input.tx_can[i].valid == 0) { continue; }
+
       const auto bus = input.tx_can[i].bus;
       can_packets_[bus].push_back(i);
       if (input.tx_can[i].expect_reply) {
@@ -1322,6 +1325,11 @@ class Pi3Hat::Impl {
           continue;
         }
         const auto& can_packet = input.tx_can[can_packets_[bus][offset]];
+        
+        // invalidate the packet just sent
+        input.tx_can[can_packets_[bus][offset]].valid = 0;
+
+        // move to next packet
         offset++;
 
         SendCanPacket(can_packet);

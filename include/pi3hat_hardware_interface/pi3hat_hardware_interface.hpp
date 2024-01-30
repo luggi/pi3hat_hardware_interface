@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
 
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/hardware_info.hpp"
@@ -17,8 +18,9 @@
 #include "rclcpp_lifecycle/state.hpp"
 
 #include "pi3hat/pi3hat.h"
+#include "protocols/actuator_base.h"
 
-#define MAX_NUM_CAN_FRAMES 12
+#define MAX_NUM_CAN_FRAMES 12*8
 
 namespace pi3hat_hardware_interface
 {
@@ -63,6 +65,9 @@ namespace pi3hat_hardware_interface
         hardware_interface::return_type write(
             const rclcpp::Time &time, const rclcpp::Duration &period) override;
 
+
+        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> allocateTxSpan(size_t size);
+        
     private:
         // Utility functions for converting between double and uint
         int double_to_uint(double x, double x_min, double x_max,
@@ -84,6 +89,14 @@ namespace pi3hat_hardware_interface
             ODRIVE      // ODrive
         };
 
+        enum TxAllocation
+        {
+            CHEETAH     = 1,
+            MYACTUATOR  = 1,
+            MOTEUS      = 1,
+            ODRIVE      = 6
+        };
+
         const unsigned char cheetahEnableMsg[8] = {0xFF, 0xFF, 0xFF, 0xFF,
                                                    0xFF, 0xFF, 0xFF, 0xFC};
 
@@ -99,8 +112,17 @@ namespace pi3hat_hardware_interface
         mjbots::pi3hat::Pi3Hat *pi3hat_;
         mjbots::pi3hat::Pi3Hat::Input pi3hat_input_;
         mjbots::pi3hat::Attitude attitude_;
-        mjbots::pi3hat::CanFrame tx_can_frames_[MAX_NUM_CAN_FRAMES];
-        mjbots::pi3hat::CanFrame rx_can_frames_[MAX_NUM_CAN_FRAMES];
+        // mjbots::pi3hat::CanFrame tx_can_frames_[MAX_NUM_CAN_FRAMES];
+        // mjbots::pi3hat::CanFrame rx_can_frames_[MAX_NUM_CAN_FRAMES];
+
+        // Pi3Hat input handling
+        std::vector<mjbots::pi3hat::CanFrame> tx_can_frames_;
+        std::vector<mjbots::pi3hat::CanFrame> rx_can_frames_;
+        size_t nextTxStart = 0; // Tracks the next start position for Tx allocations
+        size_t nextRxStart = 0; // Tracks the next start position for Rx allocations
+
+        static constexpr size_t tx_capacity_ = 36; // Default initial capacity
+        static constexpr size_t rx_capacity_ = 36; // Default initial capacity
 
         // IMU state
         std::array<double, 4> hw_state_imu_orientation_;         // x, y, z, w
@@ -110,7 +132,9 @@ namespace pi3hat_hardware_interface
         // Actuator CAN config
         std::vector<int> hw_actuator_can_channels_;
         std::vector<int> hw_actuator_can_ids_;
+        std::vector<std::reference_wrapper<ActuatorBase>> hw_actuators_;
         std::vector<CanProtocol> hw_actuator_can_protocols_;
+        std::vector<std::shared_ptr<ActuatorBase>> hw_actuators_;
 
         // Actuator parameters
         std::vector<double> hw_actuator_position_scales_;
@@ -120,6 +144,9 @@ namespace pi3hat_hardware_interface
         std::vector<double> hw_actuator_kd_scales_;
         std::vector<int> hw_actuator_axis_directions_;
         std::vector<double> hw_actuator_position_offsets_;
+        std::vector<double> hw_actuator_gear_ratios_;
+        std::vector<double> hw_actuator_torque_constants_;
+        std::vector<int> hw_actuator_soft_start_durations_ms_;
 
         // Actuator limits
         std::vector<double> hw_actuator_position_mins_; 
