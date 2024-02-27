@@ -210,7 +210,8 @@ enum ActuatorState {
     TORQUE_MODE     = 5,
 };
 
-struct MotorState {
+struct MotorState { 
+    ActuatorState current_actuator_state_ = ActuatorState::DISARMED;
     bool connected = false;
     bool error = false;
     int error_reason = 0;
@@ -221,7 +222,7 @@ struct MotorState {
 };
 
 struct MotorCommand {
-    ActuatorState actuator_state_ = ActuatorState::DISARMED;
+    ActuatorState commanded_actuator_state_ = ActuatorState::DISARMED;
     float position_ = 0.0f;
     float velocity_ = 0.0f;
     float torque_ = 0.0f;

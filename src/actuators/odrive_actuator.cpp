@@ -21,22 +21,23 @@ bool ODriveActuator::on_init() {
 
 void ODriveActuator::setState(ActuatorState state) {
     // translate input state to an odrive state
-    if (motor_state_.error && state != ActuatorState::ERROR || state == ActuatorState::DISARMED) {
+    if (motor_state_.error) {
         // if the motor is in an error state, it must be cleared before any other state can be entered
         // If the desired state is not disarm or ERROR, then the state is invalid
         state = ActuatorState::ERROR;
     }
+    
     switch(state) {
         case ActuatorState::ERROR:
             ODriveActuator::ESTOP();
             break;
         case ActuatorState::DISARMED: // Disarmed can be accessed from any state
             odrive_can_.setState(tx_frames_[0], ODriveAxisState::AXIS_STATE_IDLE);
-            motor_command_.actuator_state_ = ActuatorState::DISARMED;
+            motor_command_.commanded_actuator_state_ = ActuatorState::DISARMED;
             break;
         case ActuatorState::ARMED: // armed cannot be accessed from error state without clearing errors
             odrive_can_.setState(tx_frames_[0], ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL);
-            motor_command_.actuator_state_ = ActuatorState::ARMED;
+            motor_command_.commanded_actuator_state_ = ActuatorState::ARMED;
             break;
         case ActuatorState::POSITION_MODE: // must be armed to enter position mode
         {
@@ -47,7 +48,7 @@ void ODriveActuator::setState(ActuatorState state) {
                 validateFrame(frame_idx);
                 frame_idx++;
             }
-            motor_command_.actuator_state_ = ActuatorState::POSITION_MODE;
+            motor_command_.commanded_actuator_state_ = ActuatorState::POSITION_MODE;
             odrive_can_.setControllerMode(tx_frames_[frame_idx], ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
             validateFrame(frame_idx);
             break;
@@ -61,7 +62,7 @@ void ODriveActuator::setState(ActuatorState state) {
                 validateFrame(frame_idx);
                 frame_idx++;
             }
-            motor_command_.actuator_state_ = ActuatorState::VELOCITY_MODE;
+            motor_command_.commanded_actuator_state_ = ActuatorState::VELOCITY_MODE;
             odrive_can_.setControllerMode(tx_frames_[frame_idx], ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
             validateFrame(frame_idx);
             break;
@@ -75,7 +76,7 @@ void ODriveActuator::setState(ActuatorState state) {
                 validateFrame(frame_idx);
                 frame_idx++;
             }
-            motor_command_.actuator_state_ = ActuatorState::TORQUE_MODE;
+            motor_command_.commanded_actuator_state_ = ActuatorState::TORQUE_MODE;
             odrive_can_.setControllerMode(tx_frames_[frame_idx], ODriveControlMode::CONTROL_MODE_TORQUE_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
             validateFrame(frame_idx);
             break;
@@ -87,7 +88,7 @@ void ODriveActuator::setState(ActuatorState state) {
 }
 
 void ODriveActuator::sendJointCommand(float position, float ff_velocity, float ff_torque) {
-    if (motor_command_.actuator_state_ == ActuatorState::POSITION_MODE) {
+    if (motor_command_.commanded_actuator_state_ == ActuatorState::POSITION_MODE) {
         odrive_can_.setPosition(tx_frames_[0], position, ff_velocity, ff_torque);
         validateFrame(0);
     } else {
