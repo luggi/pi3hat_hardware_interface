@@ -87,20 +87,49 @@ void ODriveActuator::setState(ActuatorState state) {
 }
 
 void ODriveActuator::sendJointCommand(float position, float ff_velocity, float ff_torque) {
-    odrive_can_.setPosition(tx_frames_[0], position, ff_velocity, ff_torque);
-    validateFrame(0);
+    if (motor_command_.actuator_state_ == ActuatorState::POSITION_MODE) {
+        odrive_can_.setPosition(tx_frames_[0], position, ff_velocity, ff_torque);
+        validateFrame(0);
+    } else {
+        // TODO: log error
+        // TODO: decide if this should change the actuator state?
+        return;
+    }
+
 }
 
 void ODriveActuator::setPosition(float position) {
-    odrive_can_.setPosition(tx_frames_[0], position);
-    validateFrame(0);
+    if (motor_command_.actuator_state_ == ActuatorState::POSITION_MODE) {
+        odrive_can_.setPosition(tx_frames_[0], position);
+        validateFrame(0);
+    } else {
+        // TODO: log error
+        return;
+    }
+    
 
 }
 
 void ODriveActuator::setVelocity(float velocity) {
-    odrive_can_.setVelocity(tx_frames_[0], velocity);
-    validateFrame(0);
+    if (motor_command_.actuator_state_ == ActuatorState::VELOCITY_MODE) {
+        odrive_can_.setVelocity(tx_frames_[0], velocity);
+        validateFrame(0);
+    } else {
+        // TODO: log error
+        return;
+    }
 
+
+}
+
+void ODriveActuator::setTorque(float torque) {
+    if (motor_command_.actuator_state_ == ActuatorState::TORQUE_MODE) {
+        odrive_can_.setTorque(tx_frames_[0], torque);
+        validateFrame(0);
+    } else {
+        // TODO: log a warning that the actuator is not in torque mode and throw an error.
+        return;
+    }
 }
 
 void ODriveActuator::set_kp(float kp) {

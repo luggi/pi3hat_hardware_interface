@@ -62,7 +62,7 @@
       <joint name="joint_1">
           <param name="can_channel">1</param>
           <param name="can_id">1</param>
-          <param name="can_protocol">cheetah</param>
+          <param name="can_protocol">odrive</param>
 
           <param name="position_scale">95.5</param>
           <param name="velocity_scale">30.0</param>

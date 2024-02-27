@@ -18,7 +18,7 @@
 #include "rclcpp_lifecycle/state.hpp"
 
 #include "pi3hat/pi3hat.h"
-#include "protocols/actuator_base.h"
+#include "actuators/actuator_base.h"
 
 #define MAX_NUM_CAN_FRAMES 12*8
 
@@ -133,7 +133,7 @@ namespace pi3hat_hardware_interface
         std::vector<int> hw_actuator_can_channels_;
         std::vector<int> hw_actuator_can_ids_;
         std::vector<std::reference_wrapper<ActuatorBase>> hw_actuators_;
-        std::vector<CanProtocol> hw_actuator_can_protocols_;
+        std::vector<pi3hat_hardware_interface::CanProtocol> hw_actuator_can_protocols_;
         std::vector<std::shared_ptr<ActuatorBase>> hw_actuators_;
 
         // Actuator parameters

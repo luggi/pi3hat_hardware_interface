@@ -36,6 +36,7 @@ public:
     // ****************************************************** 
 
     // Virtual function for sending arbitrary CAN frame
+    // ! may not be needed
     virtual void createCANFrame() = 0;
 
     /**
@@ -71,6 +72,13 @@ public:
      * @param velocity      /// velocity of the joint [rad/s]
      */
     virtual void setVelocity(float velocity) = 0;
+
+    /**
+     * @brief Commands the actuator with a torque command
+     * 
+     * @param torque (Nm)
+     */
+    virtual void setTorque(float torque) = 0;
 
     /**
      * @brief set the kp for pd loop
@@ -110,7 +118,11 @@ public:
 
     virtual MotorState getMotorState() {return motor_state_;}
 
+    virtual void setTxSpan(mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>& tx_frames) = 0;
+
 protected:
+    
+
     // Actuator Parameters
     int can_id_ = 0;                /// the can id of this joint's motor (range depends on controller type)
     int can_bus_ = 0;               /// the can bus the motor communicates on [1-4]

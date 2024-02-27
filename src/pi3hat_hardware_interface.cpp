@@ -150,6 +150,10 @@ namespace pi3hat_hardware_interface
                 case CanProtocol::MOTEUS:
                 {
                     // TODO: implement
+                    /**
+                     * -> push back a shared pointer to a new moteus actuator instance
+                     * -> allocate the actuator's outgoing CAN Frame Span and assign it
+                     */
                 }
                 case CanProtocol::ODRIVE:
                 {
@@ -229,7 +233,7 @@ namespace pi3hat_hardware_interface
                 break;
             case CanProtocol::ODRIVE:
                 //TODO set pi3hat_input_.tx_can[i].data and pi3hat_input_.tx_can[i].id to ODrive CAN protocol idle command
-
+                hw_actuators_[i]->setState(ActuatorState::DISARMED);
             }
         }
         pi3hat_->Cycle(pi3hat_input_);
