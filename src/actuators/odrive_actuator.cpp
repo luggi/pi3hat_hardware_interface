@@ -88,7 +88,7 @@ void ODriveActuator::setState(ActuatorState state) {
 }
 
 void ODriveActuator::sendJointCommand(float position, float ff_velocity, float ff_torque) {
-    if (motor_command_.commanded_actuator_state_ == ActuatorState::POSITION_MODE) {
+    if (motor_state_.current_actuator_state_ == ActuatorState::POSITION_MODE) {
         odrive_can_.setPosition(tx_frames_[0], position, ff_velocity, ff_torque);
         validateFrame(0);
     } else {
@@ -100,7 +100,7 @@ void ODriveActuator::sendJointCommand(float position, float ff_velocity, float f
 }
 
 void ODriveActuator::setPosition(float position) {
-    if (motor_command_.actuator_state_ == ActuatorState::POSITION_MODE) {
+    if (motor_state_.current_actuator_state_ == ActuatorState::POSITION_MODE) {
         odrive_can_.setPosition(tx_frames_[0], position);
         validateFrame(0);
     } else {
@@ -112,7 +112,7 @@ void ODriveActuator::setPosition(float position) {
 }
 
 void ODriveActuator::setVelocity(float velocity) {
-    if (motor_command_.actuator_state_ == ActuatorState::VELOCITY_MODE) {
+    if (motor_state_.current_actuator_state_ == ActuatorState::VELOCITY_MODE) {
         odrive_can_.setVelocity(tx_frames_[0], velocity);
         validateFrame(0);
     } else {
@@ -124,7 +124,7 @@ void ODriveActuator::setVelocity(float velocity) {
 }
 
 void ODriveActuator::setTorque(float torque) {
-    if (motor_command_.actuator_state_ == ActuatorState::TORQUE_MODE) {
+    if (motor_state_.current_actuator_state_ == ActuatorState::TORQUE_MODE) {
         odrive_can_.setTorque(tx_frames_[0], torque);
         validateFrame(0);
     } else {
@@ -142,14 +142,14 @@ void ODriveActuator::set_kp(float kp) {
 
 void ODriveActuator::set_kd(float kd) {
     motor_command_.kd_ = kd;
-    odrive_can_.setVelGain(tx_frames_[0], kd, 0.0f); //! this will make ki 0 which is not desired
+    odrive_can_.setVelGain(tx_frames_[0], kd, motor_command_.ki_); // ! what if ki is not set?
     validateFrame(0);
 
 }
 
 void ODriveActuator::set_ki(float ki) {
     motor_command_.ki_ = ki;
-    odrive_can_.setVelGain(tx_frames_[0], 0.0f, ki); //! same issue as above
+    odrive_can_.setVelGain(tx_frames_[0], motor_command_.kd_, ki); //! similar issue as above
     validateFrame(0);
 }
 
@@ -157,7 +157,7 @@ void ODriveActuator::ESTOP() {
     odrive_can_.estop(tx_frames_[0]);
     validateFrame(0);
 
-    motor_command_.actuator_state_ = ActuatorState::ERROR;
+    motor_command_.commanded_actuator_state_ = ActuatorState::ERROR;
     motor_state_.error = true;
 
     // invalidate all other frames
