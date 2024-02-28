@@ -175,6 +175,9 @@ namespace pi3hat_hardware_interface
                 // allocate the actuator's outgoing CAN Frame Span and assign it
                 hw_actuators_[i]->setTxSpan(allocateTxSpan(TxAllocation::ODRIVE));
             }
+            case default:
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
+                return hardware_interface::CallbackReturn::ERROR;
             }
         }
 
@@ -277,6 +280,7 @@ namespace pi3hat_hardware_interface
             {
                 // TODO set pi3hat_input_.tx_can[i].data and pi3hat_input_.tx_can[i].id to ODrive CAN protocol axis closed loop control command
                 hw_actuators_[i]->setState(ActuatorState::POSITION_MODE);
+                break;
             }
             default:
                 RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");

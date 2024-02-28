@@ -19,6 +19,8 @@
 
 #include "pi3hat/pi3hat.h"
 #include "actuators/actuator_base.h"
+#include "actuators/odrive_actuator.h"
+#include "actuators/moteus_actuator.h"
 
 #define MAX_NUM_CAN_FRAMES 12*8
 
