@@ -85,8 +85,8 @@ namespace pi3hat_hardware_interface
         {
             CHEETAH,    // MIT Mini Cheetah actuators, SteadyWin, CubeMars
             MYACTUATOR, // MyActuator, LKMTech
-            MOTEUS      // Moteus (non-FD CAN)
-            ODRIVE      // ODrive
+            MOTEUS,      // Moteus (non-FD CAN)
+            ODRIVE,      // ODrive
         };
 
         enum TxAllocation
@@ -94,7 +94,7 @@ namespace pi3hat_hardware_interface
             CHEETAH     = 1,
             MYACTUATOR  = 1,
             MOTEUS      = 1,
-            ODRIVE      = 6
+            ODRIVE      = 6,
         };
 
         const unsigned char cheetahEnableMsg[8] = {0xFF, 0xFF, 0xFF, 0xFF,
@@ -121,8 +121,8 @@ namespace pi3hat_hardware_interface
         size_t nextTxStart = 0; // Tracks the next start position for Tx allocations
         size_t nextRxStart = 0; // Tracks the next start position for Rx allocations
 
-        static constexpr size_t tx_capacity_ = 36; // Default initial capacity
-        static constexpr size_t rx_capacity_ = 36; // Default initial capacity
+        static size_t tx_capacity_ = 36; // Default initial capacity
+        static size_t rx_capacity_ = 36; // Default initial capacity
 
         // IMU state
         std::array<double, 4> hw_state_imu_orientation_;         // x, y, z, w
@@ -132,7 +132,6 @@ namespace pi3hat_hardware_interface
         // Actuator CAN config
         std::vector<int> hw_actuator_can_channels_;
         std::vector<int> hw_actuator_can_ids_;
-        std::vector<std::reference_wrapper<ActuatorBase>> hw_actuators_;
         std::vector<pi3hat_hardware_interface::CanProtocol> hw_actuator_can_protocols_;
         std::vector<std::shared_ptr<ActuatorBase>> hw_actuators_;
 
