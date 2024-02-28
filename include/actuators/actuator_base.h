@@ -7,7 +7,78 @@
 
 #include "pi3hat/pi3hat.h"
 
-// Abstract base class for CAN protocol strategies
+
+// ******************************************************
+// Structs and Enums
+// ******************************************************
+/**
+ * @param can_id        /// the can id of this joint's motor (range depends on controller type)
+ * @param can_bus       /// the can bus the motor communicates on [1-4]
+ * @param name          /// The joint name
+ * @param direction     /// 1 or -1, flips positive rotation direction (Default:1)
+ * @param zero_offset   /// offset [rad] of joint zero position (Default:0) 
+ * @param gear_ratio    /// Gear ratio joint to servo (ratio>1 means slower joint) (Default:1.0)
+ * @param max_torque    /// Maximum torque of the joint [N m] (Default:inf)
+ * @param torque_const  /// Torque Constant (kt) [N m / A] (Default:0.0)
+ * @param pos_min       /// Minimum joint limit before taking protective measures such as torque limiting or shut off (Default:-inf)
+ * @param pos_max       /// Maximum joint limit before taking protective measures such as torque limiting or shut off (Default:inf)
+ * @param soft_start_duration_ms /// Duration of torque limit ramp (soft start) in ms
+ * 
+ */
+struct MotorConfig {
+    int can_id = 0;
+    int can_bus = 0;
+    std::string name = "";
+    int direction = 1;
+    float zero_offset = 0.0f;
+    float gear_ratio = 1.0f;
+    float max_torque = std::numeric_limits<float>::infinity();
+    float torque_const = 0.0f;
+    float pos_min = -std::numeric_limits<float>::infinity();
+    float pos_max = std::numeric_limits<float>::infinity();
+    int soft_start_duration_ms = 1;
+};
+
+/**
+ * @brief Enumeration of basic motor states exposed to a user
+ * 
+ */
+enum ActuatorState {
+    ERROR           = 0,
+    DISARMED        = 1,
+    ARMED           = 2,
+    POSITION_MODE   = 3,
+    VELOCITY_MODE   = 4,
+    TORQUE_MODE     = 5,
+};
+
+struct MotorState { 
+    ActuatorState current_actuator_state_ = ActuatorState::DISARMED;
+    bool connected = false;
+    bool error = false;
+    int error_reason = 0;
+    float position_ = 0.0f;
+    float velocity_ = 0.0f;
+    float torque_ = 0.0f;
+    float temperature = 0.0f;
+};
+
+struct MotorCommand {
+    ActuatorState commanded_actuator_state_ = ActuatorState::DISARMED;
+    float position_ = 0.0f;
+    float velocity_ = 0.0f;
+    float torque_ = 0.0f;
+    float ff_velocity_ = 0.0f;
+    float ff_torque_ = 0.0f;
+    float kp_ = 0.0f;
+    float kd_ = 0.0f;
+    float ki_ = 0.0f;
+};
+
+// ******************************************************
+// Actuator Base Class for CAN protocol strategies
+// ******************************************************
+
 class ActuatorBase {
 public:
     // Constructor
@@ -169,68 +240,6 @@ protected:
 
 };
 
-/**
- * @param can_id        /// the can id of this joint's motor (range depends on controller type)
- * @param can_bus       /// the can bus the motor communicates on [1-4]
- * @param name          /// The joint name
- * @param direction     /// 1 or -1, flips positive rotation direction (Default:1)
- * @param zero_offset   /// offset [rad] of joint zero position (Default:0) 
- * @param gear_ratio    /// Gear ratio joint to servo (ratio>1 means slower joint) (Default:1.0)
- * @param max_torque    /// Maximum torque of the joint [N m] (Default:inf)
- * @param torque_const  /// Torque Constant (kt) [N m / A] (Default:0.0)
- * @param pos_min       /// Minimum joint limit before taking protective measures such as torque limiting or shut off (Default:-inf)
- * @param pos_max       /// Maximum joint limit before taking protective measures such as torque limiting or shut off (Default:inf)
- * @param soft_start_duration_ms /// Duration of torque limit ramp (soft start) in ms
- * 
- */
-struct MotorConfig {
-    int can_id = 0;
-    int can_bus = 0;
-    std::string name = "";
-    int direction = 1;
-    float zero_offset = 0.0f;
-    float gear_ratio = 1.0f;
-    float max_torque = std::numeric_limits<float>::infinity();
-    float torque_const = 0.0f;
-    float pos_min = -std::numeric_limits<float>::infinity();
-    float pos_max = std::numeric_limits<float>::infinity();
-    int soft_start_duration_ms = 1;
-};
 
-/**
- * @brief Enumeration of basic motor states exposed to a user
- * 
- */
-enum ActuatorState {
-    ERROR           = 0,
-    DISARMED        = 1,
-    ARMED           = 2,
-    POSITION_MODE   = 3,
-    VELOCITY_MODE   = 4,
-    TORQUE_MODE     = 5,
-};
-
-struct MotorState { 
-    ActuatorState current_actuator_state_ = ActuatorState::DISARMED;
-    bool connected = false;
-    bool error = false;
-    int error_reason = 0;
-    float position_ = 0.0f;
-    float velocity_ = 0.0f;
-    float torque_ = 0.0f;
-    float temperature = 0.0f;
-};
-
-struct MotorCommand {
-    ActuatorState commanded_actuator_state_ = ActuatorState::DISARMED;
-    float position_ = 0.0f;
-    float velocity_ = 0.0f;
-    float torque_ = 0.0f;
-    float ff_velocity_ = 0.0f;
-    float ff_torque_ = 0.0f;
-    float kp_ = 0.0f;
-    float kd_ = 0.0f;
-    float ki_ = 0.0f;
-};
 
 #endif //ACTUATOR_BASE_H

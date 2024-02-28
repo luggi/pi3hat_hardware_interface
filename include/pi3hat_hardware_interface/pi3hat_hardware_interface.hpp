@@ -132,7 +132,7 @@ namespace pi3hat_hardware_interface
         // Actuator CAN config
         std::vector<int> hw_actuator_can_channels_;
         std::vector<int> hw_actuator_can_ids_;
-        std::vector<pi3hat_hardware_interface::CanProtocol> hw_actuator_can_protocols_;
+        std::vector<CanProtocol> hw_actuator_can_protocols_;
         std::vector<std::shared_ptr<ActuatorBase>> hw_actuators_;
 
         // Actuator parameters
