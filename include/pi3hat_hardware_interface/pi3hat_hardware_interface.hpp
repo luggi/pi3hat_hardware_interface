@@ -1,3 +1,17 @@
+/**
+ * @file pi3hat_hardware_interface.hpp
+ * @author John Bush (johncbus@usc.edu)
+ * @brief This file defines the Pi3HatHardwareInterface class, which is a 
+ *          ROS2 Control Hardware System Type Interface.
+ * @details implementation follows the ROS2 documentation found at: 
+ *              <https://control.ros.org/master/doc/ros2_control/hardware_interface/doc/writing_new_hardware_component.html>
+ * @version 0.1
+ * @date 2024-03-21
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #ifndef PI3HAT_HARDWARE_INTERFACE__PI3HAT_HARDWARE_INTERFACE_HPP_
 #define PI3HAT_HARDWARE_INTERFACE__PI3HAT_HARDWARE_INTERFACE_HPP_
 
@@ -32,8 +46,6 @@ namespace pi3hat_hardware_interface
         RCLCPP_SHARED_PTR_DEFINITIONS(Pi3HatHardwareInterface)
 
         /**
-         * @brief   Configures all 
-         * 
          * @details on_init is expected to vary depending on the URDF file. 
          *          The SystemInterface::on_init(info) call fills out the info 
          *          object with specifics from the URDF. For example, 
@@ -48,6 +60,12 @@ namespace pi3hat_hardware_interface
         hardware_interface::CallbackReturn on_init(
             const hardware_interface::HardwareInfo &info) override;
 
+        /**
+         * @brief Called after the on_init function. Setup the communication to the hardware and set everything up so that the hardware can be activated.
+         * 
+         * @param previous_state 
+         * @return hardware_interface::CallbackReturn 
+         */
         hardware_interface::CallbackReturn on_configure(
             const rclcpp_lifecycle::State &previous_state) override;
 
@@ -55,9 +73,21 @@ namespace pi3hat_hardware_interface
 
         std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
+        /**
+         * @brief Called after on_configure. This is where the hardware is activated -- "powered up"
+         * 
+         * @param previous_state 
+         * @return hardware_interface::CallbackReturn 
+         */
         hardware_interface::CallbackReturn on_activate(
             const rclcpp_lifecycle::State &previous_state) override;
 
+        /**
+         * @brief Opposite of on_activate. This is where the hardware is deactivated -- "powered down"
+         * 
+         * @param previous_state 
+         * @return hardware_interface::CallbackReturn 
+         */
         hardware_interface::CallbackReturn on_deactivate(
             const rclcpp_lifecycle::State &previous_state) override;
 

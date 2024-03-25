@@ -107,8 +107,6 @@ void ODriveActuator::setPosition(float position) {
         // TODO: log error
         return;
     }
-    
-
 }
 
 void ODriveActuator::setVelocity(float velocity) {
@@ -119,8 +117,6 @@ void ODriveActuator::setVelocity(float velocity) {
         // TODO: log error
         return;
     }
-
-
 }
 
 void ODriveActuator::setTorque(float torque) {
@@ -167,7 +163,7 @@ void ODriveActuator::ESTOP() {
 }
 
 void ODriveActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
-
+    odrive_can_.readFrame(frame);
 }
 
 void ODriveActuator::invalidateSpan() {

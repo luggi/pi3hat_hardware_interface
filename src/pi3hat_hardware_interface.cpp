@@ -174,8 +174,9 @@ namespace pi3hat_hardware_interface
 
                 // allocate the actuator's outgoing CAN Frame Span and assign it
                 hw_actuators_[i]->setTxSpan(allocateTxSpan(TxAllocation::ODRIVE));
+                break;
             }
-            case default:
+            default:
                 RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
                 return hardware_interface::CallbackReturn::ERROR;
             }
@@ -237,6 +238,10 @@ namespace pi3hat_hardware_interface
                 break;
             case CanProtocol::ODRIVE:
                 hw_actuators_[i]->setState(ActuatorState::DISARMED);
+                break;
+            default:
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
+                return hardware_interface::CallbackReturn::ERROR;
             }
         }
         pi3hat_->Cycle(pi3hat_input_);
@@ -253,7 +258,8 @@ namespace pi3hat_hardware_interface
                 break;
             case CanProtocol::ODRIVE:
             {
-                // TODO set pi3hat_input_.tx_can[i].data and pi3hat_input_.tx_can[i].id to ODrive CAN protocol set zero position command
+                // The ODrive has no zero position command... so this passes through
+                break;
             }
             default:
                 RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
@@ -267,32 +273,10 @@ namespace pi3hat_hardware_interface
             sleep(1);
         }
 
-        // onInit() -> Enable all actuators
-        for (auto i = 0u; i < hw_state_positions_.size(); i++)
-        {
-            switch (hw_actuator_can_protocols_[i])
-            {
-                // TODO: Add support for other CAN protocols
-            case CanProtocol::CHEETAH:
-                std::copy(std::begin(cheetahEnableMsg), std::end(cheetahEnableMsg), std::begin(pi3hat_input_.tx_can[i].data));
-                break;
-            case CanProtocol::ODRIVE:
-            {
-                // TODO set pi3hat_input_.tx_can[i].data and pi3hat_input_.tx_can[i].id to ODrive CAN protocol axis closed loop control command
-                hw_actuators_[i]->setState(ActuatorState::POSITION_MODE);
-                break;
-            }
-            default:
-                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
-                return hardware_interface::CallbackReturn::ERROR;
-            }
-        }
-        pi3hat_->Cycle(pi3hat_input_);
-        sleep(1);
-
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
+    // TODO: Update the state interfaces 
     std::vector<hardware_interface::StateInterface> Pi3HatHardwareInterface::export_state_interfaces()
     {
         std::vector<hardware_interface::StateInterface> state_interfaces;
@@ -376,7 +360,31 @@ namespace pi3hat_hardware_interface
 
     hardware_interface::CallbackReturn Pi3HatHardwareInterface::on_activate(
         const rclcpp_lifecycle::State & /*previous_state*/)
-    {
+    {  
+        // onInit() -> Enable all actuators
+        for (auto i = 0u; i < hw_state_positions_.size(); i++)
+        {
+            switch (hw_actuator_can_protocols_[i])
+            {
+                // TODO: Add support for other CAN protocols
+            case CanProtocol::CHEETAH:
+                std::copy(std::begin(cheetahEnableMsg), std::end(cheetahEnableMsg), std::begin(pi3hat_input_.tx_can[i].data));
+                break;
+            case CanProtocol::ODRIVE:
+            {
+                hw_actuators_[i]->setState(ActuatorState::POSITION_MODE);
+                break;
+            }
+            default:
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+        }
+        pi3hat_->Cycle(pi3hat_input_);
+        sleep(1);
+
+        // TODO: How to handle the case where the actuator fails to enable? Can we check for this?
+
         RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Successfully activated!");
 
         return hardware_interface::CallbackReturn::SUCCESS;
@@ -398,6 +406,9 @@ namespace pi3hat_hardware_interface
                 case CanProtocol::ODRIVE:
                     hw_actuators_[i]->setState(ActuatorState::DISARMED);
                     break;
+                default:
+                    RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to deactivate: unknown CAN protocol");
+                    return hardware_interface::CallbackReturn::ERROR;
             }
 
         }
@@ -414,8 +425,11 @@ namespace pi3hat_hardware_interface
             case CanProtocol::ODRIVE:
                 // do nothing
                 break;
-            
+            default:
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to deactivate: unknown CAN protocol");
+                return hardware_interface::CallbackReturn::ERROR;
             }
+
         }
         pi3hat_->Cycle(pi3hat_input_);
         sleep(1);
@@ -449,6 +463,7 @@ namespace pi3hat_hardware_interface
                 case CanProtocol::ODRIVE:
                 {
                     // TODO: update control variables for actuator
+                    hw_actuators_[i]->sendJointCommand(hw_command_positions_[i], hw_command_velocities_[i], hw_command_efforts_[i]);
                     break; 
                 }
                     // TODO: Add support for other CAN protocols

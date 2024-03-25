@@ -168,6 +168,7 @@ void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
 
     switch (id & ODriveCAN::kCmdIdBits) 
     {
+        // Read encoder estimates
         case Get_Encoder_Estimates_msg_t::cmd_id: 
         {
             Get_Encoder_Estimates_msg_t estimates;
@@ -176,6 +177,7 @@ void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
             odrive_motor_state.estimated_velocity = estimates.Vel_Estimate;
             break;
         }
+        // Read the heartbeat message from the ODrive
         case Heartbeat_msg_t::cmd_id: 
         {
             Heartbeat_msg_t status;
@@ -184,6 +186,7 @@ void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
             odrive_state.error = static_cast<ODriveError>(status.Axis_Error);
             break;
         }
+        // Read the temperature of the ODrive
         case Get_Temperature_msg_t::cmd_id: 
         {
             Get_Temperature_msg_t temperature;
@@ -191,6 +194,7 @@ void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
             odrive_state.temperature = temperature.FET_Temperature;
             break;
         }
+        // Read the current and setpoint current of the ODrive
         case Get_Iq_msg_t::cmd_id:
         {
             Get_Iq_msg_t iq;
