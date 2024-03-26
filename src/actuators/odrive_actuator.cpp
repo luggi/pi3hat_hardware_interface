@@ -11,12 +11,10 @@
 
 #include "actuators/odrive_actuator.h"
 
-ODriveAxisState ODriveActuator::translateState(ActuatorState state) {
-
-}
 
 bool ODriveActuator::on_init() {
     // TODO: Implement
+    return true;
 }
 
 void ODriveActuator::setState(ActuatorState state) {
@@ -85,12 +83,14 @@ void ODriveActuator::setState(ActuatorState state) {
             // TODO: ROS logger error undefined state
             break;
     }
+    return;
 }
 
 void ODriveActuator::sendJointCommand(float position, float ff_velocity, float ff_torque) {
     if (motor_state_.current_actuator_state_ == ActuatorState::POSITION_MODE) {
         odrive_can_.setPosition(tx_frames_[0], position, ff_velocity, ff_torque);
         validateFrame(0);
+        return;
     } else {
         // TODO: log error
         // TODO: decide if this should change the actuator state?
@@ -103,6 +103,7 @@ void ODriveActuator::setPosition(float position) {
     if (motor_state_.current_actuator_state_ == ActuatorState::POSITION_MODE) {
         odrive_can_.setPosition(tx_frames_[0], position);
         validateFrame(0);
+        return;
     } else {
         // TODO: log error
         return;
@@ -113,6 +114,7 @@ void ODriveActuator::setVelocity(float velocity) {
     if (motor_state_.current_actuator_state_ == ActuatorState::VELOCITY_MODE) {
         odrive_can_.setVelocity(tx_frames_[0], velocity);
         validateFrame(0);
+        return;
     } else {
         // TODO: log error
         return;
@@ -123,6 +125,7 @@ void ODriveActuator::setTorque(float torque) {
     if (motor_state_.current_actuator_state_ == ActuatorState::TORQUE_MODE) {
         odrive_can_.setTorque(tx_frames_[0], torque);
         validateFrame(0);
+        return;
     } else {
         // TODO: log a warning that the actuator is not in torque mode and throw an error.
         return;
@@ -160,6 +163,24 @@ void ODriveActuator::ESTOP() {
     for (int i = 1; i < tx_frames_.size(); i++) {
         tx_frames_[i].valid = false;
     }
+
+    return;
+}
+
+void ODriveActuator::sendQueryCommand() {
+    //TODO: Implement
+    return;
+}
+
+void ODriveActuator::setProperty() {
+    // TODO: Implement
+    return;
+}
+
+void ODriveActuator::clearErrors() {
+    odrive_can_.clearErrors(tx_frames_[0]);
+    validateFrame(0);
+    return;
 }
 
 void ODriveActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {

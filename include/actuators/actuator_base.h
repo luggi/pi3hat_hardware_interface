@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
+#include <memory>
+#include <limits>
 
 #include "pi3hat/pi3hat.h"
 
@@ -32,10 +34,15 @@ struct MotorConfig {
     int direction = 1;
     float zero_offset = 0.0f;
     float gear_ratio = 1.0f;
-    float max_torque = std::numeric_limits<float>::infinity();
     float torque_const = 0.0f;
+    
+    float max_torque = std::numeric_limits<float>::infinity();
     float pos_min = -std::numeric_limits<float>::infinity();
     float pos_max = std::numeric_limits<float>::infinity();
+    float vel_max = std::numeric_limits<float>::infinity();
+    float kp_max = std::numeric_limits<float>::infinity();
+    float kd_max = std::numeric_limits<float>::infinity();
+    float ki_max = std::numeric_limits<float>::infinity();
     int soft_start_duration_ms = 1;
 };
 
@@ -89,15 +96,23 @@ public:
         const int direction,
         const float zero_offset,
         const float gear_ratio,
-        const float max_torque,
         const float torque_const,
+        const float max_torque,
         const float pos_min,
         const float pos_max,
-        const int soft_start_duration_ms
-    );
+        const float vel_max,
+        const float kp_max,
+        const float kd_max,
+        const float ki_max,
+        const int soft_start_duration_ms)
+        : can_id_(can_id), can_bus_(can_bus), name_(name), direction_(direction), zero_offset_(zero_offset),
+      max_torque_(max_torque), gear_ratio_(gear_ratio), torque_const_(torque_const),
+      pos_min_(pos_min), pos_max_(pos_max), vel_max_(vel_max), kp_max_(kp_max), kd_max_(kd_max),
+      ki_max_(ki_max), soft_start_duration_ms_(soft_start_duration_ms)
+    {};
 
     // Virtual destructor to ensure proper cleanup of derived classes
-    virtual ~ActuatorBase() = default;
+    virtual ~ActuatorBase() {};
 
     // Configuration function to initialize the PiHat for given CAN protocol and bus
     virtual bool configure(const MotorConfig config);
@@ -105,10 +120,6 @@ public:
     // ****************************************************** 
     // Virtual functions to be implemented by derived classes
     // ****************************************************** 
-
-    // Virtual function for sending arbitrary CAN frame
-    // ! may not be needed
-    virtual void createCANFrame() = 0;
 
     /**
      * @brief Performs startup routines and connectivity check for the motor controller
@@ -189,7 +200,7 @@ public:
 
     virtual MotorState getMotorState() {return motor_state_;}
 
-    virtual void setTxSpan(mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>& tx_frames) = 0;
+    virtual void setTxSpan(std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> tx_frames) = 0;
 
 protected:
     
@@ -232,6 +243,10 @@ protected:
     float max_torque_ = std::numeric_limits<float>::infinity();
     float pos_min_ = -std::numeric_limits<float>::infinity();
     float pos_max_ = std::numeric_limits<float>::infinity();
+    float vel_max_ = std::numeric_limits<float>::infinity();
+    float kp_max_ = std::numeric_limits<float>::infinity();
+    float kd_max_ = std::numeric_limits<float>::infinity();
+    float ki_max_ = std::numeric_limits<float>::infinity();
  
 // TODO: how are we handling this input object? It should be treated like a queue, Unless
 // it gets fully flushed every cycle command? I think that it does get flushed by cycle, so we

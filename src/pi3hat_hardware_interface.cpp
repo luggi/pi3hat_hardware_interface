@@ -38,6 +38,8 @@ namespace pi3hat_hardware_interface
             return hardware_interface::CallbackReturn::ERROR;
         }
 
+        RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Starting pi3hat_hardware_interface on_init()");
+
         hw_state_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
         hw_state_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
         hw_state_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -100,10 +102,11 @@ namespace pi3hat_hardware_interface
             // Set limits for each joint
             hw_actuator_position_mins_.push_back(std::stod(joint.parameters.at("position_min")));
             hw_actuator_position_maxs_.push_back(std::stod(joint.parameters.at("position_max")));
-            hw_actuator_velocity_maxs_.push_back(std::stod(joint.parameters.at("velocity_max")));
-            hw_actuator_effort_maxs_.push_back(std::stod(joint.parameters.at("effort_max")));
-            hw_actuator_kp_maxs_.push_back(std::stod(joint.parameters.at("kp_max")));
-            hw_actuator_kd_maxs_.push_back(std::stod(joint.parameters.at("kd_max")));
+            hw_actuator_velocity_limits_.push_back(std::stod(joint.parameters.at("velocity_max")));
+            hw_actuator_effort_limits_.push_back(std::stod(joint.parameters.at("effort_max")));
+            hw_actuator_kp_limits_.push_back(std::stod(joint.parameters.at("kp_max")));
+            hw_actuator_kd_limits_.push_back(std::stod(joint.parameters.at("kd_max")));
+            hw_actuator_ki_limits_.push_back(std::stod(joint.parameters.at("ki_max")));
         }
 
         // TODO: To fully support moteus this should use the fd frame.
@@ -130,9 +133,9 @@ namespace pi3hat_hardware_interface
         rx_can_frames_.resize(rx_capacity_);
 
         // Create and assign Spans to the rx_can and tx_can fields of the Pi3Hat input object
-        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> rx_can_frames_span_(rx_can_frames_, rx_capacity_);
+        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> rx_can_frames_span_(rx_can_frames_.data(), rx_capacity_);
         pi3hat_input_.rx_can = rx_can_frames_span_;
-        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_can_frames_span_(tx_can_frames_, tx_capacity_);
+        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_can_frames_span_(tx_can_frames_.data(), tx_capacity_);
         pi3hat_input_.tx_can = tx_can_frames_span_;
 
         // rx_can and tx_can are Spans of CanFrames, which is a struct with the following fields:
@@ -166,10 +169,15 @@ namespace pi3hat_hardware_interface
                         hw_actuator_axis_directions_[i],
                         hw_actuator_position_offsets_[i],
                         hw_actuator_gear_ratios_[i],
-                        hw_actuator_effort_maxs_[i],
                         hw_actuator_torque_constants_[i],
+                        hw_actuator_effort_limits_[i],
                         hw_actuator_position_mins_[i],
                         hw_actuator_position_maxs_[i],
+                        hw_actuator_velocity_limits_[i],
+                        hw_actuator_kp_limits_[i],
+                        hw_actuator_kd_limits_[i],
+                        hw_actuator_ki_limits_[i],
+
                         hw_actuator_soft_start_durations_ms_[i]));
 
                 // allocate the actuator's outgoing CAN Frame Span and assign it
@@ -353,6 +361,8 @@ namespace pi3hat_hardware_interface
                 info_.joints[i].name, "kp", &hw_command_kps_[i]));
             command_interfaces.emplace_back(hardware_interface::CommandInterface(
                 info_.joints[i].name, "kd", &hw_command_kds_[i]));
+            command_interfaces.emplace_back(hardware_interface::CommandInterface(
+                info_.joints[i].name, "ki", &hw_command_kis_[i]));
         }
 
         return command_interfaces;
@@ -439,6 +449,27 @@ namespace pi3hat_hardware_interface
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
+    hardware_interface::CallbackReturn Pi3HatHardwareInterface::on_cleanup(
+        const rclcpp_lifecycle::State & /*previous_state*/)
+    {
+        // TODO: implement
+        return hardware_interface::CallbackReturn::SUCCESS;
+    }
+
+    hardware_interface::CallbackReturn Pi3HatHardwareInterface::on_shutdown(
+        const rclcpp_lifecycle::State & /*previous_state*/)
+    {
+        // TODO: implement
+        return hardware_interface::CallbackReturn::SUCCESS;
+    }
+
+    hardware_interface::CallbackReturn Pi3HatHardwareInterface::on_error(
+        const rclcpp_lifecycle::State & /*previous_state*/)
+    {
+        // TODO: implement
+        return hardware_interface::CallbackReturn::SUCCESS;
+    }
+
     hardware_interface::return_type Pi3HatHardwareInterface::read(
         const rclcpp::Time & /*time*/, const rclcpp::Duration &period)
     {
@@ -471,10 +502,10 @@ namespace pi3hat_hardware_interface
                 {
                     // constrain commands to the user-defined limits
                     double p_des = fminf(fmaxf(hw_actuator_position_mins_[i], hw_command_positions_[i]), hw_actuator_position_maxs_[i]);
-                    double v_des = fminf(fmaxf(-hw_actuator_velocity_maxs_[i], hw_command_velocities_[i]), hw_actuator_velocity_maxs_[i]);
-                    double tau_ff = fminf(fmaxf(-hw_actuator_effort_maxs_[i], hw_command_efforts_[i]), hw_actuator_effort_maxs_[i]);
-                    double kp = fminf(fmaxf(0.0, hw_command_kps_[i]), hw_actuator_kp_maxs_[i]);
-                    double kd = fminf(fmaxf(0.0, hw_command_kds_[i]), hw_actuator_kd_maxs_[i]);
+                    double v_des = fminf(fmaxf(-hw_actuator_velocity_limits_[i], hw_command_velocities_[i]), hw_actuator_velocity_limits_[i]);
+                    double tau_ff = fminf(fmaxf(-hw_actuator_effort_limits_[i], hw_command_efforts_[i]), hw_actuator_effort_limits_[i]);
+                    double kp = fminf(fmaxf(0.0, hw_command_kps_[i]), hw_actuator_kp_limits_[i]);
+                    double kd = fminf(fmaxf(0.0, hw_command_kds_[i]), hw_actuator_kd_limits_[i]);
 
                     // compensate for axis directions and offsets
                     p_des = (p_des - hw_actuator_position_offsets_[i]) * hw_actuator_axis_directions_[i];
@@ -616,7 +647,7 @@ namespace pi3hat_hardware_interface
         return hardware_interface::return_type::OK;
     }
 
-    mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> Pi3HatHardwareInterface::allocateTxSpan(size_t size)
+    std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> Pi3HatHardwareInterface::allocateTxSpan(size_t size)
     {
         // Implementation to allocate a Span for Tx
         // This could be more sophisticated to handle non-contiguous allocations
@@ -624,7 +655,7 @@ namespace pi3hat_hardware_interface
         if (start + size <= tx_can_frames_.size())
         {
             nextTxStart += size;
-            return mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>(&tx_can_frames_[start], size);
+            return std::make_shared<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>>(&tx_can_frames_[start], size);
         }
         else
         {

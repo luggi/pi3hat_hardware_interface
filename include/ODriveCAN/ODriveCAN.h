@@ -173,39 +173,6 @@ public:
     [[nodiscard]] mjbots::pi3hat::CanFrame getCanFrame() {return can_frame_;}
 
     /**
-     * @brief Sends a request message and awaits a response.
-     * 
-     * Blocks until the response is received or the timeout is reached. Returns
-     * false if the ODrive does not respond within the specified timeout.
-     */
-    template<typename T>
-    bool request(T& msg, uint16_t timeout_ms = 10) {
-        requested_msg_id_ = msg.cmd_id;
-        can_intf_.sendMsg(
-            (node_id_ << ODriveCAN::kNodeIdShift) | msg.cmd_id,
-            0, // no data
-            nullptr // RTR=1
-        );
-        if (!awaitMsg(timeout_ms)) return false;
-        msg.decode_buf(buffer_);
-        return true;
-    }
-
-    /**
-     * @brief Sends a specified message over CAN.
-     */
-    template<typename T>
-    bool send(T& msg) {
-        uint8_t data[8] = {};
-        msg.encode_buf(data);
-        return can_intf_.sendMsg(
-            (node_id_ << ODriveCAN::kNodeIdShift) | msg.cmd_id,
-            msg.msg_length,
-            data
-        );
-    }
-
-    /**
      * @brief Creates a CAN frame from a message
      */
     template<typename T>

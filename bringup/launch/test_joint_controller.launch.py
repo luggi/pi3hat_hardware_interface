@@ -14,15 +14,30 @@
 
 
 from launch import LaunchDescription
-from launch.actions import RegisterEventHandler
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler
+from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
-from launch.substitutions import Command, FindExecutable, PathJoinSubstitution
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    # Declare arguments
+    declared_arguments = []
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "gui",
+            default_value="true",
+            description="Start RViz2 automatically with this launch file.",
+        )
+    )
+
+    # Initialize Arguments
+    gui = LaunchConfiguration("gui")
+
     # Get URDF via xacro
     robot_description_content = Command(
         [
@@ -30,39 +45,43 @@ def generate_launch_description():
             " ",
             PathJoinSubstitution(
                 [
-#                    FindPackageShare("pi3hat_hardware_interface"),
-                    "/home/pi/ros2_ws/src/pi3hat_hardware_interface",
-                    "test",
+                    FindPackageShare("pi3hat_hardware_interface"),
+                    "urdf",
                     "test_state_publisher.urdf.xacro",
                 ]
             ),
         ]
     )
+
     robot_description = {"robot_description": robot_description_content}
+    print(robot_description_content)
 
     robot_controllers = PathJoinSubstitution(
         [
-#            FindPackageShare("pi3hat_hardware_interface"),
-            "/home/pi/ros2_ws/src/pi3hat_hardware_interface",
-            "test",
-            "test_state_publisher.yaml",
+            FindPackageShare("pi3hat_hardware_interface"),
+            "config",
+            "test_joint_controller.yaml",
         ]
     )
-    # rviz_config_file = PathJoinSubstitution(
-    #     [FindPackageShare("ros2_control_demo_example_1"), "rviz", "rrbot.rviz"]
-    # )
 
     control_node = Node(
         package="controller_manager",
         executable="ros2_control_node",
-        parameters=[robot_description, robot_controllers],
+        parameters=[robot_controllers],
         output="both",
     )
+
     robot_state_pub_node = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
         output="both",
         parameters=[robot_description],
+    )
+
+    node = Node(
+        package="some_package",
+        executable="some_node",
+        parameters=[{"robot_description": ParameterValue(urdf_content, value_type=str)}],
     )
     # rviz_node = Node(
     #     package="rviz2",
@@ -78,11 +97,11 @@ def generate_launch_description():
         arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
 
-    imu_sensor_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["imu_sensor_broadcaster", "--controller-manager", "/controller_manager"],
-    )
+    # imu_sensor_broadcaster_spawner = Node(
+    #     package="controller_manager",
+    #     executable="spawner",
+    #     arguments=["imu_sensor_broadcaster", "--controller-manager", "/controller_manager"],
+    # )
 
     # robot_controller_spawner = Node(
     #     package="controller_manager",
@@ -98,7 +117,7 @@ def generate_launch_description():
     #     )
     # )
 
-    # Delay start of robot_controller after `joint_state_broadcaster`
+    # # Delay start of robot_controller after `joint_state_broadcaster`
     # delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = RegisterEventHandler(
     #     event_handler=OnProcessExit(
     #         target_action=joint_state_broadcaster_spawner,
@@ -110,9 +129,9 @@ def generate_launch_description():
         control_node,
         robot_state_pub_node,
         joint_state_broadcaster_spawner,
-        imu_sensor_broadcaster_spawner,
+        # imu_sensor_broadcaster_spawner,
         # delay_rviz_after_joint_state_broadcaster_spawner,
         # delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]
 
-    return LaunchDescription(nodes)
+    return LaunchDescription(declared_arguments + nodes)

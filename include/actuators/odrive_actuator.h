@@ -28,10 +28,14 @@ public:
         const int direction,
         const float zero_offset,
         const float gear_ratio,
-        const float max_torque,
         const float torque_const,
+        const float max_torque,
         const float pos_min,
         const float pos_max,
+        const float vel_max,
+        const float kp_max,
+        const float kd_max,
+        const float ki_max,
         const int soft_start_duration_ms)
         : ActuatorBase(
             can_id,
@@ -40,10 +44,14 @@ public:
             direction,
             zero_offset,
             gear_ratio,
-            max_torque,
             torque_const,
+            max_torque,
             pos_min,
             pos_max,
+            vel_max,
+            kp_max,
+            kd_max,
+            ki_max,
             soft_start_duration_ms) 
     {
         odrive_can_ = ODriveCAN(can_id, can_bus);
@@ -67,12 +75,12 @@ public:
     void readCANFrame(mjbots::pi3hat::CanFrame frame) override;
     void clearErrors() override;
 
-    void setTxSpan(mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>& tx_frames) override
+    void setTxSpan(std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> tx_frames) override
     {
-        this->tx_frames_ = tx_frames;
+        this->tx_frames_ = *tx_frames;
 
         // loop through span and set bus
-        for (int i = 0; i < tx_frames_.size(); i++) {
+        for (size_t i = 0; i < tx_frames_.size(); i++) {
             tx_frames_[i].bus = this->can_bus_;
         }
     };
@@ -87,14 +95,6 @@ public:
     void invalidateSpan();
 
 protected:
-    /**
-     * @brief Translates from the interface enumeration to the ODrive axis state enumeration
-     * 
-     * @param state generic interface state enumeration
-     * @return ODriveAxisState - ODrive axis state enumeration 
-     */
-    ODriveAxisState translateState(ActuatorState state);
-
     /**
      * ERROR           = 0,
         DISARMED        = 1,

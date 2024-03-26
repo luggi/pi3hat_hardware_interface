@@ -11,30 +11,6 @@
 #include <iostream>
 #include "actuators/actuator_base.h"
 
-ActuatorBase::ActuatorBase(
-        int can_id,
-        int can_bus,
-        const std::string name,
-        const int direction,
-        const float zero_offset,
-        const float gear_ratio,
-        const float max_torque,
-        const float torque_const,
-        const float pos_min,
-        const float pos_max,
-        const int soft_start_duration_ms)
-    : can_id_(can_id), can_bus_(can_bus), name_(name), direction_(direction), zero_offset_(zero_offset),
-      max_torque_(max_torque), gear_ratio_(gear_ratio), torque_const_(torque_const),
-      pos_min_(pos_min), pos_max_(pos_max), soft_start_duration_ms_(soft_start_duration_ms)
-{
-    if (gear_ratio <= 0)
-    {
-        //TODO Replace with ROS2 Logger warn
-        std::cout << "Warning: Gear ratio must be positive. \nGear ratio reset to 1.0" << std::endl;
-        gear_ratio_ = 1.0;
-    }
-}
-
 bool ActuatorBase::configure(const MotorConfig config) {
     can_id_ = config.can_id;
     can_bus_ = config.can_bus;
@@ -45,6 +21,11 @@ bool ActuatorBase::configure(const MotorConfig config) {
     torque_const_ = config.torque_const;
     pos_min_ = config.pos_min;
     pos_max_ = config.pos_max;
+    vel_max_ = config.vel_max;
+    kp_max_ = config.kp_max;
+    kd_max_ = config.kd_max;
+    ki_max_ = config.ki_max;
+
     soft_start_duration_ms_ = config.soft_start_duration_ms;
     gear_ratio_ = config.gear_ratio;
 
@@ -67,6 +48,11 @@ bool ActuatorBase::configure(const MotorConfig config) {
         //TODO Replace with ROS2 Logger warn
         std::cout << "Warning: Gear ratio must be positive. \nGear ratio reset to 1.0" << std::endl;
         gear_ratio_ = 1.0;
+    }
+    if (config.kp_max <= 0) {
+        //TODO Logger warn
+        std::cout << "Warning: Kp Max should be greater than 0. \nKp Limit reset to infinity" << std::endl;
+        ki_max_ = std::numeric_limits<float>::infinity();
     }
 
     return true;

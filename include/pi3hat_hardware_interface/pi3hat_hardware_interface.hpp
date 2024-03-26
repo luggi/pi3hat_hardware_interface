@@ -69,6 +69,13 @@ namespace pi3hat_hardware_interface
         hardware_interface::CallbackReturn on_configure(
             const rclcpp_lifecycle::State &previous_state) override;
 
+        /**
+         * Does opposite of on_configure()
+        */
+        hardware_interface::CallbackReturn on_cleanup(
+            const rclcpp_lifecycle::State &previous_state) override;
+
+
         std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
         std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
@@ -91,6 +98,13 @@ namespace pi3hat_hardware_interface
         hardware_interface::CallbackReturn on_deactivate(
             const rclcpp_lifecycle::State &previous_state) override;
 
+        hardware_interface::CallbackReturn on_shutdown(
+            const rclcpp_lifecycle::State &previous_state) override;
+
+        hardware_interface::CallbackReturn on_error(
+            const rclcpp_lifecycle::State &previous_state) override;
+
+
         hardware_interface::return_type read(
             const rclcpp::Time &time, const rclcpp::Duration &period) override;
 
@@ -98,7 +112,7 @@ namespace pi3hat_hardware_interface
             const rclcpp::Time &time, const rclcpp::Duration &period) override;
 
 
-        mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> allocateTxSpan(size_t size);
+        std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> allocateTxSpan(size_t size);
         
     private:
         // Utility functions for converting between double and uint
@@ -153,8 +167,9 @@ namespace pi3hat_hardware_interface
         size_t nextTxStart = 0; // Tracks the next start position for Tx allocations
         size_t nextRxStart = 0; // Tracks the next start position for Rx allocations
 
-        static size_t tx_capacity_ = 36; // Default initial capacity
-        static size_t rx_capacity_ = 36; // Default initial capacity
+        // ! DO THESE NEED TO BE STATIC??
+        size_t tx_capacity_ = 36; // Default initial capacity
+        size_t rx_capacity_ = 36; // Default initial capacity
 
         // IMU state
         std::array<double, 4> hw_state_imu_orientation_;         // x, y, z, w
@@ -182,10 +197,11 @@ namespace pi3hat_hardware_interface
         // Actuator limits
         std::vector<double> hw_actuator_position_mins_; 
         std::vector<double> hw_actuator_position_maxs_;
-        std::vector<double> hw_actuator_velocity_maxs_;
-        std::vector<double> hw_actuator_effort_maxs_;
-        std::vector<double> hw_actuator_kp_maxs_;
-        std::vector<double> hw_actuator_kd_maxs_;
+        std::vector<double> hw_actuator_velocity_limits_;
+        std::vector<double> hw_actuator_effort_limits_;
+        std::vector<double> hw_actuator_kp_limits_;
+        std::vector<double> hw_actuator_kd_limits_;
+        std::vector<double> hw_actuator_ki_limits_;
 
         // Actuator states
         std::vector<double> hw_state_positions_;
@@ -198,6 +214,7 @@ namespace pi3hat_hardware_interface
         std::vector<double> hw_command_efforts_;
         std::vector<double> hw_command_kps_;
         std::vector<double> hw_command_kds_;
+        std::vector<double> hw_command_kis_;
     };
 
 } // namespace pi3hat_hardware_interface
