@@ -1266,6 +1266,11 @@ class Pi3Hat::Impl {
   void SendCanPacket(const CanFrame& can_frame) {
     switch (can_frame.bus) {
       case 1: {
+        std::printf("CAN id: 0x%x  ", can_frame.id);
+        for(int i = 0; i < 8; i++) {
+          std::printf(" %d", can_frame.data[i]);
+        }
+        std::printf("\n");
         SendCanPacketSpi(aux_spi_, 0, 0, can_frame);
         break;
       }
@@ -1305,7 +1310,9 @@ class Pi3Hat::Impl {
     }
     for (size_t i = 0; i < input.tx_can.size(); i++) {
       // skip invalid frames
-      if (input.tx_can[i].valid == 0) { continue; }
+      if (input.tx_can[i].valid == 0) { 
+        continue; 
+      }
 
       const auto bus = input.tx_can[i].bus;
       can_packets_[bus].push_back(i);
@@ -1325,15 +1332,15 @@ class Pi3Hat::Impl {
           continue;
         }
         const auto& can_packet = input.tx_can[can_packets_[bus][offset]];
-        
+
+        SendCanPacket(can_packet);
+        any_sent = true;
+
         // invalidate the packet just sent
         input.tx_can[can_packets_[bus][offset]].valid = 0;
 
         // move to next packet
         offset++;
-
-        SendCanPacket(can_packet);
-        any_sent = true;
       }
 
       if (!any_sent) { break; }

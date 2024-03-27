@@ -5,6 +5,8 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(CMAKE_BUILD_TYPE Debug)
+
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -16,27 +18,64 @@ ament_auto_find_build_dependencies()
 
 include_directories(
   include
+  include/actuators
+  include/ODriveCAN
+  include/pi3hat
+  include/pi3hat_hardware_interface
 )
 
 add_library(pi3hat SHARED
   include/pi3hat/pi3hat.cpp
+)
+# fixing the bcm_host problems...
+find_library(BCM_HOST NAMES bcm_host)
+
+if(NOT BCM_HOST)
+  message(FATAL_ERROR "bcm_host library not found")
+endif()
+
+target_link_libraries(pi3hat PRIVATE ${BCM_HOST})
+
+add_library(ODriveCAN SHARED
+  src/ODriveCAN.cpp
+  include/pi3hat/pi3hat.cpp
+)
+
+target_link_libraries(ODriveCAN PRIVATE
+  pi3hat
 )
 
 # Create a library target for ActuatorBase
 add_library(actuator_base SHARED
   src/actuators/actuator_base.cpp
 )
-# If actuator_base needs to link against other libraries, do it here with target_link_libraries
 
 # Create a library target for ODriveActuator, which depends on ActuatorBase
 add_library(odrive_actuator SHARED
   src/actuators/odrive_actuator.cpp
+  src/ODriveCAN.cpp
+  include/pi3hat/pi3hat.cpp
 )
+
 # Link odrive_actuator against actuator_base
-target_link_libraries(odrive_actuator
-  PRIVATE
+target_link_libraries(odrive_actuator PRIVATE
   actuator_base
+  ODriveCAN
+  pi3hat
+  bcm_host
 )
+
+# # Moteus Actuator Library
+# add_library(moteus_actuator SHARED
+#   src/actuators/moteus_actuator.cpp
+# )
+
+# # Link moteus_actuator against actuator_base
+# target_link_libraries(moteus_actuator PRIVATE
+#   actuator_base
+#   #moteus protocol file
+#   pi3hat
+# )
 
 # add compile directive for shared library
 add_library(pi3hat_hardware_interface SHARED
@@ -45,10 +84,14 @@ add_library(pi3hat_hardware_interface SHARED
   src/pi3hat_hardware_interface.cpp
 )
 
+add_compile_options(-fsanitize=address -g)
+add_link_options(-fsanitize=address)
+
 target_link_libraries(pi3hat_hardware_interface PUBLIC
   pi3hat
   bcm_host
   odrive_actuator
+  actuator_base
 )
 
 target_compile_features(pi3hat_hardware_interface PUBLIC cxx_std_17)
@@ -80,18 +123,25 @@ pluginlib_export_plugin_description_file(hardware_interface pi3hat_hardware_inte
 
 # INSTALL
 install(
-  TARGETS pi3hat
-  DESTINATION lib
-)
-install(
   DIRECTORY include/
   DESTINATION include/pi3hat_hardware_interface
+)
+
+install(TARGETS
+  pi3hat
+  odrive_actuator
+  # moteus_actuator
+  ODriveCAN
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
 )
 
 install(
   DIRECTORY bringup/launch bringup/config
   DESTINATION share/pi3hat_hardware_interface
 )
+
 install(
   DIRECTORY description/urdf
   DESTINATION share/pi3hat_hardware_interface

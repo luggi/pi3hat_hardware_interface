@@ -5,7 +5,7 @@
 #include "ODriveCAN.h"
 #include "pi3hat/pi3hat.h"
 
-// #include <Arduino.h> // needed for debug printing //! will need to update this for the ROS2 Logger
+// #include <Arduino.h>  //TODO need to update this for the ROS2 Logger
 
 void ODriveCAN::estop(mjbots::pi3hat::CanFrame& frame) {
     Estop_msg_t estop_msg;

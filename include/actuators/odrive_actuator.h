@@ -11,6 +11,7 @@
 #pragma once
 
 #include <map>
+#include <iostream>
 
 #include "ODriveCAN/ODriveCAN.h"
 #include "ODriveCAN/ODriveEnums.h"

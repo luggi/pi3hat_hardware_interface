@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <vector>
+#include <unordered_set>
 #include <sched.h>
 #include <sys/mman.h>
 
@@ -50,6 +51,8 @@ namespace pi3hat_hardware_interface
         hw_command_kps_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
         hw_command_kds_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
 
+        RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "pi3hat_hardware_interface on_init() BP 0");
+
         // Determine which actuator types are in use and determine the span size required.
         for (const hardware_interface::ComponentInfo &joint : info_.joints)
         {
@@ -58,6 +61,7 @@ namespace pi3hat_hardware_interface
                 // throw an error since this isnt supported yet
                 hw_actuator_can_protocols_.push_back(CanProtocol::CHEETAH);
                 tx_capacity_ += TxAllocation::CHEETAH;
+                rx_capacity_ += RxAllocation::CHEETAH;
                 // TODO: what is happening with rx_allocation
             }
             else if ("myactuator" == joint.parameters.at("can_protocol"))
@@ -65,18 +69,21 @@ namespace pi3hat_hardware_interface
                 // throw an error since this isnt supported yet
                 hw_actuator_can_protocols_.push_back(CanProtocol::MYACTUATOR);
                 tx_capacity_ += TxAllocation::MYACTUATOR;
+                rx_capacity_ += RxAllocation::MYACTUATOR;
                 // TODO: what is happening with rx_allocation
             }
             else if ("moteus" == joint.parameters.at("can_protocol"))
             {
                 hw_actuator_can_protocols_.push_back(CanProtocol::MOTEUS);
                 tx_capacity_ += TxAllocation::MOTEUS;
+                rx_capacity_ += RxAllocation::MOTEUS;
                 // TODO: what is happening with rx_allocation
             }
             else if ("odrive" == joint.parameters.at("can_protocol"))
             {
                 hw_actuator_can_protocols_.push_back(CanProtocol::ODRIVE);
                 tx_capacity_ += TxAllocation::ODRIVE;
+                rx_capacity_ += RxAllocation::ODRIVE;
                 // TODO: what is happening with rx_allocation
             }
             else
@@ -86,13 +93,8 @@ namespace pi3hat_hardware_interface
             }
 
             // Set params for each joint
-            hw_actuator_can_channels_.push_back(std::stoi(joint.parameters.at("can_channel")));
             hw_actuator_can_ids_.push_back(std::stoi(joint.parameters.at("can_id")));
-            hw_actuator_position_scales_.push_back(std::stod(joint.parameters.at("position_scale")));
-            hw_actuator_velocity_scales_.push_back(std::stod(joint.parameters.at("velocity_scale")));
-            hw_actuator_effort_scales_.push_back(std::stod(joint.parameters.at("effort_scale")));
-            hw_actuator_kp_scales_.push_back(std::stod(joint.parameters.at("kp_scale")));
-            hw_actuator_kd_scales_.push_back(std::stod(joint.parameters.at("kd_scale")));
+            hw_actuator_can_channels_.push_back(std::stoi(joint.parameters.at("can_channel")));
             hw_actuator_axis_directions_.push_back(std::stoi(joint.parameters.at("axis_direction")));
             hw_actuator_position_offsets_.push_back(std::stod(joint.parameters.at("position_offset")));
             hw_actuator_gear_ratios_.push_back(std::stod(joint.parameters.at("gear_ratio")));
@@ -109,9 +111,22 @@ namespace pi3hat_hardware_interface
             hw_actuator_ki_limits_.push_back(std::stod(joint.parameters.at("ki_max")));
         }
 
+        // Check if any of the joints have the same CAN ID. IDs should be unique.
+        std::unordered_set<int> seenIDs;
+        for (int id : hw_actuator_can_ids_) {
+            if (!seenIDs.insert(id).second) {
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: duplicate CAN IDs present");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+        }
+
+        RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "pi3hat_hardware_interface on_init() BP 1");
+
         // TODO: To fully support moteus this should use the fd frame.
         // Configure the Pi3Hat CAN for non-FD mode without bitrate switching or automatic retranmission
         mjbots::pi3hat::Pi3Hat::CanConfiguration can_config;
+        can_config.fast_bitrate = 500000;
+        can_config.slow_bitrate = 500000;
         can_config.fdcan_frame = false;
         can_config.bitrate_switch = false;
         can_config.automatic_retransmission = false;
@@ -145,6 +160,8 @@ namespace pi3hat_hardware_interface
         //      bool expect_reply;
         //      uint8_t data[8];
 
+        RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "pi3hat_hardware_interface on_init() BP 2");
+
         // onInit() -> Initialize the CAN Protocol Interfaces
         for (uint i = 0; i < info_.joints.size(); i++)
         {
@@ -160,6 +177,7 @@ namespace pi3hat_hardware_interface
             }
             case CanProtocol::ODRIVE:
             {
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Creating an ODrive Actuator at joint %d", i);
                 // Create new actuator and add shared pointer to vector
                 hw_actuators_.push_back(
                     std::make_shared<ODriveActuator>(
@@ -182,6 +200,7 @@ namespace pi3hat_hardware_interface
 
                 // allocate the actuator's outgoing CAN Frame Span and assign it
                 hw_actuators_[i]->setTxSpan(allocateTxSpan(TxAllocation::ODRIVE));
+                hw_actuators_[i]->invalidateSpan();
                 break;
             }
             default:
@@ -189,6 +208,8 @@ namespace pi3hat_hardware_interface
                 return hardware_interface::CallbackReturn::ERROR;
             }
         }
+
+        RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "pi3hat_hardware_interface on_init() BP 3");
 
         // onInit() -> Set up the CAN configuration
         for (uint i = 0; i < info_.joints.size(); i++)
@@ -198,6 +219,12 @@ namespace pi3hat_hardware_interface
             pi3hat_input_.tx_can[i].bus = hw_actuator_can_channels_[i];
             pi3hat_input_.tx_can[i].expect_reply = true;
             pi3hat_input_.tx_can[i].size = 8;
+
+            if (hw_actuator_can_protocols_[i] == CanProtocol::ODRIVE) {
+                // This forces the Pi Hat to check for CAN replies on the channels connected to ODrives,
+                // since the ODrives send heartbeat messages automatically to the PiHat.
+                pi3hat_input_.force_can_check |= (1U << hw_actuator_can_channels_[i]);
+            }
         }
 
         // onInit() -> Initialize the Pi3Hat
@@ -235,18 +262,47 @@ namespace pi3hat_hardware_interface
             }
         }
 
+        RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "pi3hat_hardware_interface on_init() BP 4");
+
+        // onInit() -> Confirm communication feedback with actuator
+        // Cycle the input first to receive any feedback messages
+        pi3hat_->Cycle(pi3hat_input_);
+        sleep(1);
+        for (auto i = 0u; i < hw_state_positions_.size(); i++) 
+        {
+            switch (hw_actuator_can_protocols_[i])
+            {
+                // TODO: Add support for other CAN protocols
+            // case CanProtocol::CHEETAH:
+            //     std::copy(std::begin(cheetahSetIdleCmdMsg), std::end(cheetahSetIdleCmdMsg), std::begin(pi3hat_input_.tx_can[i].data));
+            //     break;
+            case CanProtocol::ODRIVE:
+            {
+                hw_actuators_[i]->setState(ActuatorState::DISARMED);
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Sending ODrive at Joint %d to idle...", i);
+                break;
+            }
+            default:
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+        }
+        
         // onInit() -> Set all actuators to IDLE
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
             switch (hw_actuator_can_protocols_[i])
             {
                 // TODO: Add support for other CAN protocols
-            case CanProtocol::CHEETAH:
-                std::copy(std::begin(cheetahSetIdleCmdMsg), std::end(cheetahSetIdleCmdMsg), std::begin(pi3hat_input_.tx_can[i].data));
-                break;
+            // case CanProtocol::CHEETAH:
+            //     std::copy(std::begin(cheetahSetIdleCmdMsg), std::end(cheetahSetIdleCmdMsg), std::begin(pi3hat_input_.tx_can[i].data));
+            //     break;
             case CanProtocol::ODRIVE:
+            {
                 hw_actuators_[i]->setState(ActuatorState::DISARMED);
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Sending ODrive at Joint %d to idle...", i);
                 break;
+            }
             default:
                 RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
                 return hardware_interface::CallbackReturn::ERROR;
@@ -255,18 +311,23 @@ namespace pi3hat_hardware_interface
         pi3hat_->Cycle(pi3hat_input_);
         sleep(1);
 
+        RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "pi3hat_hardware_interface on_init() BP 5");
+
         // onInit() -> Set the zero position for each actuator
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
             switch (hw_actuator_can_protocols_[i])
             {
                 // TODO: Add support for other CAN protocols
-            case CanProtocol::CHEETAH:
-                std::copy(std::begin(cheetahSetZeroPositionMsg), std::end(cheetahSetZeroPositionMsg), std::begin(pi3hat_input_.tx_can[i].data));
-                break;
+            // case CanProtocol::CHEETAH:
+            // {
+            //     std::copy(std::begin(cheetahSetZeroPositionMsg), std::end(cheetahSetZeroPositionMsg), std::begin(pi3hat_input_.tx_can[i].data));
+            //     break;
+            // }
             case CanProtocol::ODRIVE:
             {
                 // The ODrive has no zero position command... so this passes through
+                hw_actuators_[i]->setState(ActuatorState::DISARMED);
                 break;
             }
             default:
@@ -371,17 +432,45 @@ namespace pi3hat_hardware_interface
     hardware_interface::CallbackReturn Pi3HatHardwareInterface::on_activate(
         const rclcpp_lifecycle::State & /*previous_state*/)
     {  
-        // onInit() -> Enable all actuators
+        // onActivate() -> Enable all actuators
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
             switch (hw_actuator_can_protocols_[i])
             {
                 // TODO: Add support for other CAN protocols
             case CanProtocol::CHEETAH:
+            {
                 std::copy(std::begin(cheetahEnableMsg), std::end(cheetahEnableMsg), std::begin(pi3hat_input_.tx_can[i].data));
                 break;
+            }
             case CanProtocol::ODRIVE:
             {
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Setting ODrive %d state to ARMED", i);
+                hw_actuators_[i]->setState(ActuatorState::ARMED);
+                break;
+            }
+            default:
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+        }
+        pi3hat_->Cycle(pi3hat_input_);
+        sleep(1);
+
+        // onActivate() -> Enable all actuators
+        for (auto i = 0u; i < hw_state_positions_.size(); i++)
+        {
+            switch (hw_actuator_can_protocols_[i])
+            {
+                // TODO: Add support for other CAN protocols
+            case CanProtocol::CHEETAH:
+            {
+                std::copy(std::begin(cheetahEnableMsg), std::end(cheetahEnableMsg), std::begin(pi3hat_input_.tx_can[i].data));
+                break;
+            }
+            case CanProtocol::ODRIVE:
+            {
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Setting ODrive %d state to Position Mode", i);
                 hw_actuators_[i]->setState(ActuatorState::POSITION_MODE);
                 break;
             }
@@ -414,8 +503,10 @@ namespace pi3hat_hardware_interface
                     std::copy(std::begin(cheetahSetIdleCmdMsg), std::end(cheetahSetIdleCmdMsg), std::begin(pi3hat_input_.tx_can[i].data));
                     break;
                 case CanProtocol::ODRIVE:
+                {
                     hw_actuators_[i]->setState(ActuatorState::DISARMED);
                     break;
+                }
                 default:
                     RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to deactivate: unknown CAN protocol");
                     return hardware_interface::CallbackReturn::ERROR;
@@ -433,7 +524,7 @@ namespace pi3hat_hardware_interface
                 std::copy(std::begin(cheetahDisableMsg), std::end(cheetahDisableMsg), std::begin(pi3hat_input_.tx_can[i].data));
                 break;
             case CanProtocol::ODRIVE:
-                // do nothing
+                hw_actuators_[i]->setState(ActuatorState::DISARMED);
                 break;
             default:
                 RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to deactivate: unknown CAN protocol");
@@ -507,42 +598,20 @@ namespace pi3hat_hardware_interface
                     double kp = fminf(fmaxf(0.0, hw_command_kps_[i]), hw_actuator_kp_limits_[i]);
                     double kd = fminf(fmaxf(0.0, hw_command_kds_[i]), hw_actuator_kd_limits_[i]);
 
-                    // compensate for axis directions and offsets
-                    p_des = (p_des - hw_actuator_position_offsets_[i]) * hw_actuator_axis_directions_[i];
-                    v_des = v_des * hw_actuator_axis_directions_[i];
-                    tau_ff = tau_ff * hw_actuator_axis_directions_[i];
+                    // // compensate for axis directions and offsets
+                    // p_des = (p_des - hw_actuator_position_offsets_[i]) * hw_actuator_axis_directions_[i];
+                    // v_des = v_des * hw_actuator_axis_directions_[i];
+                    // tau_ff = tau_ff * hw_actuator_axis_directions_[i];
 
-                    // Wrap position to the range [-hw_actuator_position_scales_[i], hw_actuator_position_scales_[i]] to account for multiple rotations
-                    p_des = wrap_angle(p_des, -hw_actuator_position_scales_[i], hw_actuator_position_scales_[i]);
-
-                    // constrain commands to the permissible values for the CAN protocol
-                    p_des = fminf(fmaxf(-hw_actuator_position_scales_[i], p_des), hw_actuator_position_scales_[i]);
-                    v_des = fminf(fmaxf(-hw_actuator_velocity_scales_[i], v_des), hw_actuator_velocity_scales_[i]);
-                    tau_ff = fminf(fmaxf(-hw_actuator_effort_scales_[i], tau_ff), hw_actuator_effort_scales_[i]);
-                    kp = fminf(fmaxf(0.0, kp), hw_actuator_kp_scales_[i]);
-                    kd = fminf(fmaxf(0.0, kd), hw_actuator_kd_scales_[i]);
-
-                    // convert doubles to unsigned ints
-                    int p_int =
-                        double_to_uint(p_des, -hw_actuator_position_scales_[i], hw_actuator_position_scales_[i], 16);
-                    int v_int =
-                        double_to_uint(v_des, -hw_actuator_velocity_scales_[i], hw_actuator_velocity_scales_[i], 12);
-                    int kp_int =
-                        double_to_uint(kp, 0.0, hw_actuator_kp_scales_[i], 12);
-                    int kd_int =
-                        double_to_uint(kd, 0.0, hw_actuator_kd_scales_[i], 12);
-                    int t_int =
-                        double_to_uint(tau_ff, -hw_actuator_effort_scales_[i], hw_actuator_effort_scales_[i], 12);
-
-                    // pack ints into the can message
-                    pi3hat_input_.tx_can[i].data[0] = p_int >> 8;
-                    pi3hat_input_.tx_can[i].data[1] = p_int & 0xFF;
-                    pi3hat_input_.tx_can[i].data[2] = v_int >> 4;
-                    pi3hat_input_.tx_can[i].data[3] = ((v_int & 0xF) << 4) | (kp_int >> 8);
-                    pi3hat_input_.tx_can[i].data[4] = kp_int & 0xFF;
-                    pi3hat_input_.tx_can[i].data[5] = kd_int >> 4;
-                    pi3hat_input_.tx_can[i].data[6] = ((kd_int & 0xF) << 4) | (t_int >> 8);
-                    pi3hat_input_.tx_can[i].data[7] = t_int & 0xff;
+                    // // pack ints into the can message
+                    // pi3hat_input_.tx_can[i].data[0] = p_int >> 8;
+                    // pi3hat_input_.tx_can[i].data[1] = p_int & 0xFF;
+                    // pi3hat_input_.tx_can[i].data[2] = v_int >> 4;
+                    // pi3hat_input_.tx_can[i].data[3] = ((v_int & 0xF) << 4) | (kp_int >> 8);
+                    // pi3hat_input_.tx_can[i].data[4] = kp_int & 0xFF;
+                    // pi3hat_input_.tx_can[i].data[5] = kd_int >> 4;
+                    // pi3hat_input_.tx_can[i].data[6] = ((kd_int & 0xF) << 4) | (t_int >> 8);
+                    // pi3hat_input_.tx_can[i].data[7] = t_int & 0xff;
                     break;
                 }
                 default:
@@ -617,13 +686,6 @@ namespace pi3hat_hardware_interface
                             int v_int = (pi3hat_input_.rx_can[j].data[3] << 4) | (pi3hat_input_.rx_can[j].data[4] >> 4);
                             int i_int = ((pi3hat_input_.rx_can[j].data[4] & 0xF) << 8) | pi3hat_input_.rx_can[j].data[5];
 
-                            // convert unsigned ints to doubles
-                            double p_double = uint_to_double(p_int, -hw_actuator_position_scales_[i], hw_actuator_position_scales_[i], 16) * hw_actuator_axis_directions_[i] + hw_actuator_position_offsets_[i];
-                            hw_state_velocities_[i] = uint_to_double(v_int, -hw_actuator_velocity_scales_[i], hw_actuator_velocity_scales_[i], 12) * hw_actuator_axis_directions_[i];
-                            hw_state_efforts_[i] = uint_to_double(i_int, -hw_actuator_effort_scales_[i], hw_actuator_effort_scales_[i], 12) * hw_actuator_axis_directions_[i];
-
-                            // position is wrapped to the range [-hw_actuator_position_scales_[i], hw_actuator_position_scales_[i]], so we need to unwrap it
-                            hw_state_positions_[i] = unwrap_angle(p_double, hw_state_positions_[i], -hw_actuator_position_scales_[i], hw_actuator_position_scales_[i]);
                         }
                         break;
                     }
@@ -703,6 +765,38 @@ namespace pi3hat_hardware_interface
             d_angle += span;
         }
         return prev_angle + d_angle;
+    }
+
+    bool Pi3HatHardwareInterface::distribute_rx_input(mjbots::pi3hat::Pi3Hat::Output result)
+    {
+        if (result.rx_can_size > 0)
+        {
+            // loop through the input's rx_span and identify what bus the frame came from.
+
+        }
+    }
+
+    int Pi3HatHardwareInterface::get_node_index(mjbots::pi3hat::CanFrame frame)
+    {
+        uint32_t raw_id = frame.id;
+        uint8_t bus = frame.bus;
+        
+        auto index = Pi3HatHardwareInterface::findIndex(hw_actuator_can_ids_, raw_id);
+        if (index && index < hw_state_positions_.size()) {
+            if (hw_actuator_can_channels_[index] == bus) {
+                return index; // it is very likely that this is the node_ID that sent the message.
+            }
+        }
+
+        // if we get here, it is likely that the raw_id isn't the node id. (in the case of an ODrive)
+        uint32_t odrive_id = (raw_id >> 5);
+        auto index = Pi3HatHardwareInterface::findIndex(hw_actuator_can_ids_, odrive_id);
+        if (index && index < hw_state_) {
+            return index;
+        }
+
+
+        // 
     }
 
 } // namespace pi3hat_hardware_interface
