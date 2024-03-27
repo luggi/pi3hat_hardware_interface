@@ -46,9 +46,9 @@ void Moteus_Protocol::setState(ActuatorState state) {
 void Moteus_Protocol::setPosition( float position) {
 
     moteus_actuator_.SetPosition(tx_frames_[0],position);
-     // validateFrame(0); 
-     //Void Function validate frame used in Odrive Actuator Set Position but has no moteus definition
-     // Does an equivalence need to be written?
+    // validateFrame(0); 
+    // Void Function validate frame used in Odrive Actuator Set Position but has no moteus definition
+    // Does an equivalence need to be written?
 
 
 
