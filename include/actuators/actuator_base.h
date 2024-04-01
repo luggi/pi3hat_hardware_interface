@@ -201,6 +201,8 @@ public:
     virtual MotorState getMotorState() {return motor_state_;}
 
     virtual void setTxSpan(std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> tx_frames) = 0;
+    
+    virtual void invalidateSpan();
 
 protected:
     

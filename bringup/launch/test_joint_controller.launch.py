@@ -54,7 +54,6 @@ def generate_launch_description():
     )
 
     robot_description = {"robot_description": robot_description_content}
-    print(robot_description_content)
 
     robot_controllers = PathJoinSubstitution(
         [
@@ -69,6 +68,9 @@ def generate_launch_description():
         executable="ros2_control_node",
         parameters=[robot_controllers],
         output="both",
+        remappings=[
+            ("~/robot_description", "/robot_description"),
+        ],
     )
 
     robot_state_pub_node = Node(
@@ -78,11 +80,6 @@ def generate_launch_description():
         parameters=[robot_description],
     )
 
-    node = Node(
-        package="some_package",
-        executable="some_node",
-        parameters=[{"robot_description": ParameterValue(urdf_content, value_type=str)}],
-    )
     # rviz_node = Node(
     #     package="rviz2",
     #     executable="rviz2",
@@ -97,11 +94,11 @@ def generate_launch_description():
         arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
 
-    # imu_sensor_broadcaster_spawner = Node(
-    #     package="controller_manager",
-    #     executable="spawner",
-    #     arguments=["imu_sensor_broadcaster", "--controller-manager", "/controller_manager"],
-    # )
+    imu_sensor_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["imu_sensor_broadcaster", "--controller-manager", "/controller_manager"],
+    )
 
     # robot_controller_spawner = Node(
     #     package="controller_manager",
@@ -129,7 +126,7 @@ def generate_launch_description():
         control_node,
         robot_state_pub_node,
         joint_state_broadcaster_spawner,
-        # imu_sensor_broadcaster_spawner,
+        imu_sensor_broadcaster_spawner,
         # delay_rviz_after_joint_state_broadcaster_spawner,
         # delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]

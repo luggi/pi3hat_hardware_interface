@@ -7,7 +7,8 @@
  * 
  * 
  */
-#pragma once
+#ifndef ODRIVECAN_H
+#define ODRIVECAN_H
 
 #include <time.h>
 
@@ -189,9 +190,15 @@ public:
 
     template<typename T>
     void writeFrame(mjbots::pi3hat::CanFrame& frame, T& msg) {
+        frame.data = {};
         msg.encode_buf(frame.data);
         frame.size = msg.msg_length;
         frame.id = (node_id_ << ODriveCAN::kNodeIdShift) | msg.cmd_id;
+        std::printf("Writing command %d. ", msg.cmd_id);
+        for (int i = 0; i < 8; i++) {
+            std::printf(" %d ", frame.data[i]);
+        }
+        std::printf("\n");
         return;
     }
     
@@ -254,3 +261,5 @@ private:
     void (*axis_state_callback_)(Heartbeat_msg_t& feedback, void* user_data) = nullptr;
     void (*feedback_callback_)(Get_Encoder_Estimates_msg_t& feedback, void* user_data) = nullptr;
 };
+
+#endif 

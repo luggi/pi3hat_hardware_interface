@@ -32,13 +32,16 @@ void ODriveActuator::setState(ActuatorState state) {
         case ActuatorState::DISARMED: // Disarmed can be accessed from any state
             odrive_can_.setState(tx_frames_[0], ODriveAxisState::AXIS_STATE_IDLE);
             motor_command_.commanded_actuator_state_ = ActuatorState::DISARMED;
+            validateFrame(0);
             break;
         case ActuatorState::ARMED: // armed cannot be accessed from error state without clearing errors
             odrive_can_.setState(tx_frames_[0], ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL);
             motor_command_.commanded_actuator_state_ = ActuatorState::ARMED;
+            validateFrame(0);
             break;
         case ActuatorState::POSITION_MODE: // must be armed to enter position mode
         {
+            std::cout << "Setting ODrive State to Position Mode" << std::endl;
             // if the previous state was not closed loop control, set it to closed loop control
             int frame_idx = 0;
             if (prev_axis_state_ != ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL) {

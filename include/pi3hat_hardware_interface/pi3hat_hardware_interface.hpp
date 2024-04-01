@@ -183,11 +183,6 @@ namespace pi3hat_hardware_interface
         std::vector<std::shared_ptr<ActuatorBase>> hw_actuators_;
 
         // Actuator parameters
-        std::vector<double> hw_actuator_position_scales_;
-        std::vector<double> hw_actuator_velocity_scales_;
-        std::vector<double> hw_actuator_effort_scales_;
-        std::vector<double> hw_actuator_kp_scales_;
-        std::vector<double> hw_actuator_kd_scales_;
         std::vector<int> hw_actuator_axis_directions_;
         std::vector<double> hw_actuator_position_offsets_;
         std::vector<double> hw_actuator_gear_ratios_;

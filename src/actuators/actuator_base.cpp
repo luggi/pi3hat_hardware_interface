@@ -57,3 +57,9 @@ bool ActuatorBase::configure(const MotorConfig config) {
 
     return true;
 }
+
+void ActuatorBase::invalidateSpan() {
+    for (auto& frame : tx_frames_) {
+        frame.valid = false;
+    }
+}
