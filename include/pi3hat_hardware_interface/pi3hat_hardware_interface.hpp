@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <optional>
 
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/hardware_info.hpp"
@@ -126,6 +127,20 @@ namespace pi3hat_hardware_interface
         double unwrap_angle(double angle, double prev_angle, double angle_min,
                            double angle_max);
 
+        // Utility function to distribute incoming CAN frames to actuators
+        bool distribute_rx_input(mjbots::pi3hat::Pi3Hat::Output result);
+
+        int get_node_index(mjbots::pi3hat::CanFrame frame);
+
+        std::optional<size_t> findIndex(const std::vector<int>& vec, int value) {
+            for (size_t i = 0; i < vec.size(); ++i) {
+                if (vec[i] == value) {
+                    return i; // Found the element, return its index
+                }
+            }
+            return std::nullopt; // Element not found, return std::nullopt
+        }
+
         // Enum for CAN protocol types: cheetah, myactuator, or moteus
         enum class CanProtocol
         {
@@ -136,6 +151,14 @@ namespace pi3hat_hardware_interface
         };
 
         enum TxAllocation
+        {
+            CHEETAH     = 1,
+            MYACTUATOR  = 1,
+            MOTEUS      = 1,
+            ODRIVE      = 6,
+        };
+
+        enum RxAllocation
         {
             CHEETAH     = 1,
             MYACTUATOR  = 1,

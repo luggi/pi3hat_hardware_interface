@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <vector>
+#include <unordered_set>
 #include <sched.h>
 #include <sys/mman.h>
 
@@ -60,6 +61,7 @@ namespace pi3hat_hardware_interface
                 // throw an error since this isnt supported yet
                 hw_actuator_can_protocols_.push_back(CanProtocol::CHEETAH);
                 tx_capacity_ += TxAllocation::CHEETAH;
+                rx_capacity_ += RxAllocation::CHEETAH;
                 // TODO: what is happening with rx_allocation
             }
             else if ("myactuator" == joint.parameters.at("can_protocol"))
@@ -67,18 +69,21 @@ namespace pi3hat_hardware_interface
                 // throw an error since this isnt supported yet
                 hw_actuator_can_protocols_.push_back(CanProtocol::MYACTUATOR);
                 tx_capacity_ += TxAllocation::MYACTUATOR;
+                rx_capacity_ += RxAllocation::MYACTUATOR;
                 // TODO: what is happening with rx_allocation
             }
             else if ("moteus" == joint.parameters.at("can_protocol"))
             {
                 hw_actuator_can_protocols_.push_back(CanProtocol::MOTEUS);
                 tx_capacity_ += TxAllocation::MOTEUS;
+                rx_capacity_ += RxAllocation::MOTEUS;
                 // TODO: what is happening with rx_allocation
             }
             else if ("odrive" == joint.parameters.at("can_protocol"))
             {
                 hw_actuator_can_protocols_.push_back(CanProtocol::ODRIVE);
                 tx_capacity_ += TxAllocation::ODRIVE;
+                rx_capacity_ += RxAllocation::ODRIVE;
                 // TODO: what is happening with rx_allocation
             }
             else
@@ -104,6 +109,15 @@ namespace pi3hat_hardware_interface
             hw_actuator_kp_limits_.push_back(std::stod(joint.parameters.at("kp_max")));
             hw_actuator_kd_limits_.push_back(std::stod(joint.parameters.at("kd_max")));
             hw_actuator_ki_limits_.push_back(std::stod(joint.parameters.at("ki_max")));
+        }
+
+        // Check if any of the joints have the same CAN ID. IDs should be unique.
+        std::unordered_set<int> seenIDs;
+        for (int id : hw_actuator_can_ids_) {
+            if (!seenIDs.insert(id).second) {
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: duplicate CAN IDs present");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
         }
 
         RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "pi3hat_hardware_interface on_init() BP 1");
@@ -205,6 +219,12 @@ namespace pi3hat_hardware_interface
             pi3hat_input_.tx_can[i].bus = hw_actuator_can_channels_[i];
             pi3hat_input_.tx_can[i].expect_reply = true;
             pi3hat_input_.tx_can[i].size = 8;
+
+            if (hw_actuator_can_protocols_[i] == CanProtocol::ODRIVE) {
+                // This forces the Pi Hat to check for CAN replies on the channels connected to ODrives,
+                // since the ODrives send heartbeat messages automatically to the PiHat.
+                pi3hat_input_.force_can_check |= (1U << hw_actuator_can_channels_[i]);
+            }
         }
 
         // onInit() -> Initialize the Pi3Hat
@@ -244,6 +264,30 @@ namespace pi3hat_hardware_interface
 
         RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "pi3hat_hardware_interface on_init() BP 4");
 
+        // onInit() -> Confirm communication feedback with actuator
+        // Cycle the input first to receive any feedback messages
+        pi3hat_->Cycle(pi3hat_input_);
+        sleep(1);
+        for (auto i = 0u; i < hw_state_positions_.size(); i++) 
+        {
+            switch (hw_actuator_can_protocols_[i])
+            {
+                // TODO: Add support for other CAN protocols
+            // case CanProtocol::CHEETAH:
+            //     std::copy(std::begin(cheetahSetIdleCmdMsg), std::end(cheetahSetIdleCmdMsg), std::begin(pi3hat_input_.tx_can[i].data));
+            //     break;
+            case CanProtocol::ODRIVE:
+            {
+                hw_actuators_[i]->setState(ActuatorState::DISARMED);
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Sending ODrive at Joint %d to idle...", i);
+                break;
+            }
+            default:
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to start: unknown CAN protocol");
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+        }
+        
         // onInit() -> Set all actuators to IDLE
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
@@ -256,7 +300,7 @@ namespace pi3hat_hardware_interface
             case CanProtocol::ODRIVE:
             {
                 hw_actuators_[i]->setState(ActuatorState::DISARMED);
-                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Sending ODrive %d to idle...", i);
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Sending ODrive at Joint %d to idle...", i);
                 break;
             }
             default:
@@ -721,6 +765,38 @@ namespace pi3hat_hardware_interface
             d_angle += span;
         }
         return prev_angle + d_angle;
+    }
+
+    bool Pi3HatHardwareInterface::distribute_rx_input(mjbots::pi3hat::Pi3Hat::Output result)
+    {
+        if (result.rx_can_size > 0)
+        {
+            // loop through the input's rx_span and identify what bus the frame came from.
+
+        }
+    }
+
+    int Pi3HatHardwareInterface::get_node_index(mjbots::pi3hat::CanFrame frame)
+    {
+        uint32_t raw_id = frame.id;
+        uint8_t bus = frame.bus;
+        
+        auto index = Pi3HatHardwareInterface::findIndex(hw_actuator_can_ids_, raw_id);
+        if (index && index < hw_state_positions_.size()) {
+            if (hw_actuator_can_channels_[index] == bus) {
+                return index; // it is very likely that this is the node_ID that sent the message.
+            }
+        }
+
+        // if we get here, it is likely that the raw_id isn't the node id. (in the case of an ODrive)
+        uint32_t odrive_id = (raw_id >> 5);
+        auto index = Pi3HatHardwareInterface::findIndex(hw_actuator_can_ids_, odrive_id);
+        if (index && index < hw_state_) {
+            return index;
+        }
+
+
+        // 
     }
 
 } // namespace pi3hat_hardware_interface
