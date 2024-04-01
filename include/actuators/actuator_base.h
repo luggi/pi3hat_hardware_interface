@@ -68,6 +68,21 @@ struct MotorState {
     float velocity_ = 0.0f;
     float torque_ = 0.0f;
     float temperature = 0.0f;
+
+    bool operator==(const MotorState& other) const {
+        return current_actuator_state_ == other.current_actuator_state_ &&
+               connected == other.connected &&
+               error == other.error &&
+               error_reason == other.error_reason &&
+               position_ == other.position_ &&
+               velocity_ == other.velocity_ &&
+               torque_ == other.torque_ &&
+               temperature == other.temperature;
+    }
+
+    bool operator!=(const MotorState& other) const {
+        return !(*this == other);
+    }
 };
 
 struct MotorCommand {
@@ -80,6 +95,22 @@ struct MotorCommand {
     float kp_ = 0.0f;
     float kd_ = 0.0f;
     float ki_ = 0.0f;
+
+    bool operator==(const MotorCommand& other) const {
+        return commanded_actuator_state_ == other.commanded_actuator_state_ &&
+               position_ == other.position_ &&
+               velocity_ == other.velocity_ &&
+               torque_ == other.torque_ &&
+               ff_velocity_ == other.ff_velocity_ &&
+               ff_torque_ == other.ff_torque_ &&
+               kp_ == other.kp_ &&
+               kd_ == other.kd_ &&
+               ki_ == other.ki_;
+    }
+
+    bool operator!=(const MotorCommand& other) const {
+        return !(*this == other);
+    }
 };
 
 // ******************************************************
@@ -130,7 +161,16 @@ public:
     virtual bool on_init() = 0;
 
     // Virtual function to command controller state
-    virtual void setState(ActuatorState state) = 0; 
+    virtual void setState(ActuatorState state) = 0;
+
+    // Getter for the current state of the motor controller
+    virtual ActuatorState getState() {return motor_state_.current_actuator_state_;};
+    
+    /**
+     * @brief Sets the zero position of the joint
+     * 
+     */
+    virtual void setZero() = 0;
 
     /**
      * @brief Forms a CAN frame to send a position command to the motor controller
@@ -181,6 +221,8 @@ public:
      */
     virtual void set_ki(float ki){ki_ = ki;}
 
+    virtual void processRxFrames() = 0;
+
     // Virtual function for requesting data from the motor controller
     virtual void sendQueryCommand() = 0;
 
@@ -203,6 +245,15 @@ public:
     virtual void setTxSpan(std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> tx_frames) = 0;
     
     virtual void invalidateSpan();
+
+    /**
+     * @brief Adds a received CAN frame to the actuator's rx_frames_ buffer
+     * 
+     * @param frame 
+     */
+    virtual void addRxFrame(mjbots::pi3hat::CanFrame frame);
+
+    virtual bool updateStateVars() = 0;
 
 protected:
     
@@ -254,6 +305,8 @@ protected:
 // it gets fully flushed every cycle command? I think that it does get flushed by cycle, so we
 // can instead fill it from index 0 every command.
     mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_frames_;
+
+    std::vector<mjbots::pi3hat::CanFrame> rx_frames_;
 
 };
 

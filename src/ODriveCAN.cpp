@@ -157,11 +157,14 @@ mjbots::pi3hat::CanFrame ODriveCAN::createSetLimitsFrame(float current_lim, floa
     return createFrame(set_limits_msg);
 }
 
-void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame) 
+bool ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame) 
 {
     uint32_t id = frame.id;
     uint8_t length = frame.size;
     uint8_t* data = frame.data;
+
+    ODriveMotorState new_odrive_motor_state = odrive_motor_state;
+    ODriveState new_odrive_state = odrive_state;
     
     // guard to ensure we only process frames from the correct node
     if (node_id_ != (id >> ODriveCAN::kNodeIdShift)) return;
@@ -173,8 +176,8 @@ void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
         {
             Get_Encoder_Estimates_msg_t estimates;
             estimates.decode_buf(data);
-            odrive_motor_state.estimated_position = estimates.Pos_Estimate;
-            odrive_motor_state.estimated_velocity = estimates.Vel_Estimate;
+            new_odrive_motor_state.estimated_position = estimates.Pos_Estimate;
+            new_odrive_motor_state.estimated_velocity = estimates.Vel_Estimate;
             break;
         }
         // Read the heartbeat message from the ODrive
@@ -182,8 +185,8 @@ void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
         {
             Heartbeat_msg_t status;
             status.decode_buf(data);
-            odrive_state.axis_state = static_cast<ODriveAxisState>(status.Axis_State);
-            odrive_state.error = static_cast<ODriveError>(status.Axis_Error);
+            new_odrive_state.axis_state = static_cast<ODriveAxisState>(status.Axis_State);
+            new_odrive_state.error = static_cast<ODriveError>(status.Axis_Error);
             break;
         }
         // Read the temperature of the ODrive
@@ -191,7 +194,7 @@ void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
         {
             Get_Temperature_msg_t temperature;
             temperature.decode_buf(data);
-            odrive_state.temperature = temperature.FET_Temperature;
+            new_odrive_state.temperature = temperature.FET_Temperature;
             break;
         }
         // Read the current and setpoint current of the ODrive
@@ -199,12 +202,19 @@ void ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
         {
             Get_Iq_msg_t iq;
             iq.decode_buf(data);
-            odrive_motor_state.estimated_current = iq.Iq_Measured;
-            odrive_motor_state.current_setpoint = iq.Iq_Setpoint;
+            new_odrive_motor_state.estimated_current = iq.Iq_Measured;
+            new_odrive_motor_state.current_setpoint = iq.Iq_Setpoint;
             break;
         }
         default: {
-            if (requested_msg_id_ == REQUEST_PENDING) return;
+            return false;
+        }
+        // Check if the state has changed
+        if (odrive_motor_state != new_odrive_motor_state || odrive_state != new_odrive_state) 
+        {
+            odrive_motor_state = new_odrive_motor_state;
+            odrive_state = new_odrive_state;
+            return true;
         }
     }
 

@@ -56,13 +56,16 @@ public:
             soft_start_duration_ms) 
     {
         odrive_can_ = ODriveCAN(can_id, can_bus);
+        buildReverseMap();
     };
 
     // ****************************************************** 
     // Enumerations for state translation
     // ******************************************************
     bool on_init() override;
+    void setZero() override;
     void setState(ActuatorState state) override;
+    ActuatorState getState() {return motor_state_.current_actuator_state_;};
     void sendJointCommand(float position, float ff_velocity, float ff_torque) override;
     void setPosition(float position) override;
     void setVelocity(float velocity) override;
@@ -70,11 +73,14 @@ public:
     void set_kp(float kp) override;
     void set_kd(float kd) override;
     void set_ki(float ki) override;
+    void processRxFrames() override;
     void sendQueryCommand() override;
     void setProperty() override;
     void ESTOP() override;
     void readCANFrame(mjbots::pi3hat::CanFrame frame) override;
     void clearErrors() override;
+    // update the motor state and motor command based on odrive_can_ state 
+    bool updateStateVars() override;
 
     void setTxSpan(std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> tx_frames) override
     {
@@ -115,8 +121,40 @@ protected:
         // ... continue mapping other states
     };
 
+    std::map<ODriveAxisState, ActuatorState> odriveToActuatorMap;
+
+    void buildReverseMap() {
+        for (const auto& pair : actuatorToODriveMap) {
+            odriveToActuatorMap[pair.second] = pair.first;
+        }
+    }  
+
+    // Function to convert ActuatorState to ODriveAxisState
+    ODriveAxisState convertToODriveState(ActuatorState actuatorState) {
+        auto it = actuatorToODriveMap.find(actuatorState);
+        if (it != actuatorToODriveMap.end()) {
+            // Found the actuator state in the map, return the corresponding ODrive state
+            return it->second;
+        } else {
+            // Handle the case where the actuator state isn't found in the map
+            // This could throw an exception, return a default state, or handle it in some other way
+            throw std::runtime_error("ActuatorState not found in conversion map.");
+        }
+    }
+
+    ActuatorState convertToActuatorState(ODriveAxisState odriveState) {
+        auto it = odriveToActuatorMap.find(odriveState);
+        if (it != odriveToActuatorMap.end()) {
+            return it->second;
+        } else {
+            throw std::runtime_error("ODriveAxisState not found in conversion map.");
+        }
+    }
+
 private:
     void validateFrame(int index);
+
+    
 
     ODriveCAN odrive_can_;
     ODriveAxisState prev_axis_state_ = AXIS_STATE_UNDEFINED;

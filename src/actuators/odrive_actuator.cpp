@@ -17,6 +17,11 @@ bool ODriveActuator::on_init() {
     return true;
 }
 
+void ODriveActuator::setZero() {
+    // todo: implement
+    return;
+}
+
 void ODriveActuator::setState(ActuatorState state) {
     // translate input state to an odrive state
     if (motor_state_.error) {
@@ -91,8 +96,16 @@ void ODriveActuator::setState(ActuatorState state) {
 
 void ODriveActuator::sendJointCommand(float position, float ff_velocity, float ff_torque) {
     if (motor_state_.current_actuator_state_ == ActuatorState::POSITION_MODE) {
-        odrive_can_.setPosition(tx_frames_[0], position, ff_velocity, ff_torque);
+        float position_command = gear_ratio_ * direction_ * (position + zero_offset_);
+        float ff_velocity = gear_ratio_ * direction_ * ff_velocity;
+        float ff_torque = direction_ * ff_torque / gear_ratio_;
+        odrive_can_.setPosition(tx_frames_[0], position_command, ff_velocity, ff_torque);
         validateFrame(0);
+
+        // update motor command state
+        motor_command_.position_ = position_command;
+        motor_command_.ff_velocity_ = ff_velocity;
+        motor_command_.ff_torque_ = ff_torque;
         return;
     } else {
         // TODO: log error
@@ -170,6 +183,16 @@ void ODriveActuator::ESTOP() {
     return;
 }
 
+void ODriveActuator::processRxFrames() {
+    for (auto& frame : rx_frames_) {
+        odrive_can_.readFrame(frame);
+        updateStateVars();
+    }
+    // clear the rx frames
+    rx_frames_.clear();
+    return;
+}
+
 void ODriveActuator::sendQueryCommand() {
     //TODO: Implement
     return;
@@ -198,5 +221,34 @@ void ODriveActuator::invalidateSpan() {
 
 void ODriveActuator::validateFrame(int frame_index) {
     tx_frames_[frame_index].valid = true;
+}
+
+bool ODriveActuator::updateStateVars() {
+    // copy the current state
+    MotorState new_motor_state_ = motor_state_;
+    MotorCommand new_motor_command_ = motor_command_;
+
+    // get the current states from the ODrive
+    ODriveCAN::ODriveMotorState odrive_motor_state_ = odrive_can_.getMotorState();
+    ODriveCAN::ODriveState odrive_state_ = odrive_can_.getState();
+    
+    try {
+        new_motor_state_.current_actuator_state_ = convertToActuatorState(odrive_state_.axis_state);
+    } catch (const std::exception& e) {
+        std::cerr << "Error converting state: " << e.what() << std::endl;
+    }
+    new_motor_state_.error = odrive_state_.error;
+    new_motor_state_.position_ = odrive_motor_state_.estimated_position;
+    new_motor_state_.velocity_ = odrive_motor_state_.estimated_velocity;
+    new_motor_state_.torque_ = odrive_motor_state_.estimated_current * torque_const_;
+    new_motor_state_.temperature = odrive_state_.temperature;
+
+    if (motor_state_ != new_motor_state_ || motor_command_ != new_motor_command_) {
+        motor_state_ = new_motor_state_;
+        motor_command_ = new_motor_command_;
+        return true;
+    } else {
+        return false;
+    }
 }
 

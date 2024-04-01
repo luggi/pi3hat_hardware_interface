@@ -128,6 +128,17 @@ public:
         float estimated_velocity = 0.0f;
         float estimated_current = 0.0f;
         float current_setpoint = 0.0f;
+
+        bool operator==(const ODriveMotorState& other) const {
+            return estimated_position == other.estimated_position &&
+                   estimated_velocity == other.estimated_velocity &&
+                   estimated_current == other.estimated_current &&
+                   current_setpoint == other.current_setpoint;
+        }
+
+        bool operator!=(const ODriveMotorState& other) const {
+            return !(*this == other);
+        }
     };
 
     struct ODriveState {
@@ -136,6 +147,18 @@ public:
         ODriveControlMode control_mode = CONTROL_MODE_POSITION_CONTROL;
         ODriveInputMode input_mode = INPUT_MODE_PASSTHROUGH;
         float temperature = 0.0f;
+
+        bool operator==(const ODriveState& other) const {
+            return axis_state == other.axis_state &&
+                   error == other.error &&
+                   control_mode == other.control_mode &&
+                   input_mode == other.input_mode &&
+                   temperature == other.temperature;
+        }
+
+        bool operator!=(const ODriveState& other) const {
+            return !(*this == other);
+        }
     };
 
     /**
@@ -162,8 +185,23 @@ public:
     /**
      * @brief Reads an incoming CAN frame and updates internal state.
      * 
+     * @return true if the motor state changed
      */
-    void readFrame(mjbots::pi3hat::CanFrame frame);
+    bool readFrame(mjbots::pi3hat::CanFrame frame);
+
+    /**
+     * @brief Get the ODrive Motor State object
+     * 
+     * @return ODriveMotorState 
+     */
+    [[nodiscard]] ODriveMotorState getMotorState() {return odrive_motor_state;}
+
+    /**
+     * @brief Get the ODrive State object
+     * 
+     * @return ODriveState 
+     */
+    [[nodiscard]] ODriveState getState() {return odrive_state;}
 
 
     /**

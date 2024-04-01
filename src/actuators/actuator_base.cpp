@@ -63,3 +63,7 @@ void ActuatorBase::invalidateSpan() {
         frame.valid = false;
     }
 }
+
+void ActuatorBase::addRxFrame(mjbots::pi3hat::CanFrame frame) {
+    rx_frames_.push_back(frame);
+}
