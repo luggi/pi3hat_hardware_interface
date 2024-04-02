@@ -165,7 +165,12 @@ public:
 
     // Getter for the current state of the motor controller
     virtual ActuatorState getState() {return motor_state_.current_actuator_state_;};
-    
+
+    virtual double getEffort() {return motor_state_.torque_;};
+
+    virtual double getVelocity() {return motor_state_.velocity_;};
+
+    virtual double getPosition() {return motor_state_.position_;};    
     /**
      * @brief Sets the zero position of the joint
      * 

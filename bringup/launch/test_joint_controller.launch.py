@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# To run:
+# sudo -E bash src/pi3hat_hardware_interface/run_as_root.sh ros2 launch src/pi3hat_hardware_interface/bringup/launch/test_joint_controller.launch.py
+
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, RegisterEventHandler

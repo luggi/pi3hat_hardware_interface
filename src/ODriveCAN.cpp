@@ -167,7 +167,7 @@ bool ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
     ODriveState new_odrive_state = odrive_state;
     
     // guard to ensure we only process frames from the correct node
-    if (node_id_ != (id >> ODriveCAN::kNodeIdShift)) return;
+    if (node_id_ != (id >> ODriveCAN::kNodeIdShift)) return false;
 
     switch (id & ODriveCAN::kCmdIdBits) 
     {
@@ -209,16 +209,14 @@ bool ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
         default: {
             return false;
         }
-        // Check if the state has changed
-        if (odrive_motor_state != new_odrive_motor_state || odrive_state != new_odrive_state) 
-        {
-            odrive_motor_state = new_odrive_motor_state;
-            odrive_state = new_odrive_state;
-            return true;
-        }
     }
-
-
+    // Check if the state has changed
+    if (odrive_motor_state != new_odrive_motor_state || odrive_state != new_odrive_state) 
+    {
+        odrive_motor_state = new_odrive_motor_state;
+        odrive_state = new_odrive_state;
+        return true;
+    }
 }
 
 

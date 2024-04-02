@@ -223,6 +223,39 @@ void ODriveActuator::validateFrame(int frame_index) {
     tx_frames_[frame_index].valid = true;
 }
 
+ActuatorState ODriveActuator::getActuatorState() {
+    // create copy of the ODrive CAN state object
+    ODriveCAN::ODriveState odrive_state_ = odrive_can_.getState();
+    return ODriveActuator::convertToActuatorState(odrive_state_);
+}
+
+ActuatorState ODriveActuator::convertToActuatorState(ODriveCAN::ODriveState odrive_state_) {
+    ODriveAxisState axis_state = odrive_state_.axis_state;
+    ODriveError error = odrive_state_.error;
+    ODriveControlMode control_mode = odrive_state_.control_mode;
+
+    if (axis_state <= 1) { // state is UNDEFINED (0) or IDLE (1)
+        if (error != ODriveError::ODRIVE_ERROR_NONE) {
+            return ActuatorState::DISARMED;
+        } else {
+            return ActuatorState::ERROR;
+        }
+    } else if (axis_state == ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL) {
+        switch (control_mode) {
+            case ODriveControlMode::CONTROL_MODE_TORQUE_CONTROL:
+                return ActuatorState::TORQUE_MODE;
+            case ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL:
+                return ActuatorState::VELOCITY_MODE;
+            case ODriveControlMode::CONTROL_MODE_POSITION_CONTROL:
+                return ActuatorState::POSITION_MODE;
+            default:
+                return ActuatorState::ARMED;
+        }
+    } else {
+        throw std::runtime_error("There was an error converting the ODrive State."); 
+    }
+}
+
 bool ODriveActuator::updateStateVars() {
     // copy the current state
     MotorState new_motor_state_ = motor_state_;
@@ -232,17 +265,15 @@ bool ODriveActuator::updateStateVars() {
     ODriveCAN::ODriveMotorState odrive_motor_state_ = odrive_can_.getMotorState();
     ODriveCAN::ODriveState odrive_state_ = odrive_can_.getState();
     
-    try {
-        new_motor_state_.current_actuator_state_ = convertToActuatorState(odrive_state_.axis_state);
-    } catch (const std::exception& e) {
-        std::cerr << "Error converting state: " << e.what() << std::endl;
-    }
+    new_motor_state_.current_actuator_state_ = convertToActuatorState(odrive_state_);
+    
     new_motor_state_.error = odrive_state_.error;
     new_motor_state_.position_ = odrive_motor_state_.estimated_position;
     new_motor_state_.velocity_ = odrive_motor_state_.estimated_velocity;
     new_motor_state_.torque_ = odrive_motor_state_.estimated_current * torque_const_;
     new_motor_state_.temperature = odrive_state_.temperature;
 
+    // update if something changed
     if (motor_state_ != new_motor_state_ || motor_command_ != new_motor_command_) {
         motor_state_ = new_motor_state_;
         motor_command_ = new_motor_command_;

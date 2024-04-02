@@ -119,29 +119,29 @@ namespace pi3hat_hardware_interface
         bool distribute_rx_input(mjbots::pi3hat::Pi3Hat::Output result);
         
     private:
-        // Utility functions for converting between float and uint
-        int float_to_uint(float x, float x_min, float x_max,
+        // Utility functions for converting between double and uint
+        int double_to_uint(double x, double x_min, double x_max,
                           int bits);
-        float uint_to_float(int x_int, float x_min, float x_max,
+        double uint_to_double(int x_int, double x_min, double x_max,
                             int bits);
 
         // Utility functions for dealing with angle wrapping
-        float wrap_angle(float angle, float angle_min, float angle_max);
-        float unwrap_angle(float angle, float prev_angle, float angle_min,
-                           float angle_max);
+        double wrap_angle(double angle, double angle_min, double angle_max);
+        double unwrap_angle(double angle, double prev_angle, double angle_min,
+                           double angle_max);
 
         void assign_frame(mjbots::pi3hat::CanFrame frame);
 
         void update_state_interfaces();
 
-        std::optional<size_t> findIndex(const std::vector<int>& vec, int value) {
+        int findIndex(const std::vector<int>& vec, int value) {
             for (size_t i = 0; i < vec.size(); ++i) {
                 if (vec[i] == value) {
                     return i; // Found the element, return its index
                 }
             }
-            return std::nullopt; // Element not found, return std::nullopt
-        }
+            return -1; // Element not found, return std::nullopt
+        };
 
         // Enum for CAN protocol types: cheetah, myactuator, or moteus
         enum class CanProtocol
@@ -154,18 +154,18 @@ namespace pi3hat_hardware_interface
 
         enum TxAllocation
         {
-            CHEETAH     = 1,
-            MYACTUATOR  = 1,
-            MOTEUS      = 1,
-            ODRIVE      = 6,
+            CHEETAH_TX     = 1,
+            MYACTUATOR_TX  = 1,
+            MOTEUS_TX      = 1,
+            ODRIVE_TX      = 6,
         };
 
         enum RxAllocation
         {
-            CHEETAH     = 1,
-            MYACTUATOR  = 1,
-            MOTEUS      = 1,
-            ODRIVE      = 6,
+            CHEETAH_RX     = 1,
+            MYACTUATOR_RX  = 1,
+            MOTEUS_RX      = 1,
+            ODRIVE_RX      = 6,
         };
 
         const unsigned char cheetahEnableMsg[8] = {0xFF, 0xFF, 0xFF, 0xFF,
@@ -197,9 +197,9 @@ namespace pi3hat_hardware_interface
         size_t rx_capacity_ = 36; // Default initial capacity
 
         // IMU state
-        std::array<float, 4> hw_state_imu_orientation_;         // x, y, z, w
-        std::array<float, 3> hw_state_imu_angular_velocity_;    // x, y, z
-        std::array<float, 3> hw_state_imu_linear_acceleration_; // x, y, z
+        std::array<double, 4> hw_state_imu_orientation_;         // x, y, z, w
+        std::array<double, 3> hw_state_imu_angular_velocity_;    // x, y, z
+        std::array<double, 3> hw_state_imu_linear_acceleration_; // x, y, z
 
         // Actuator CAN config
         std::vector<int> hw_actuator_can_channels_;
@@ -209,32 +209,32 @@ namespace pi3hat_hardware_interface
 
         // Actuator parameters
         std::vector<int> hw_actuator_axis_directions_;
-        std::vector<float> hw_actuator_position_offsets_;
-        std::vector<float> hw_actuator_gear_ratios_;
-        std::vector<float> hw_actuator_torque_constants_;
+        std::vector<double> hw_actuator_position_offsets_;
+        std::vector<double> hw_actuator_gear_ratios_;
+        std::vector<double> hw_actuator_torque_constants_;
         std::vector<int> hw_actuator_soft_start_durations_ms_;
 
         // Actuator limits
-        std::vector<float> hw_actuator_position_mins_; 
-        std::vector<float> hw_actuator_position_maxs_;
-        std::vector<float> hw_actuator_velocity_limits_;
-        std::vector<float> hw_actuator_effort_limits_;
-        std::vector<float> hw_actuator_kp_limits_;
-        std::vector<float> hw_actuator_kd_limits_;
-        std::vector<float> hw_actuator_ki_limits_;
+        std::vector<double> hw_actuator_position_mins_; 
+        std::vector<double> hw_actuator_position_maxs_;
+        std::vector<double> hw_actuator_velocity_limits_;
+        std::vector<double> hw_actuator_effort_limits_;
+        std::vector<double> hw_actuator_kp_limits_;
+        std::vector<double> hw_actuator_kd_limits_;
+        std::vector<double> hw_actuator_ki_limits_;
 
         // Actuator states
-        std::vector<float> hw_state_positions_;
-        std::vector<float> hw_state_velocities_;
-        std::vector<float> hw_state_efforts_;
+        std::vector<double> hw_state_positions_;
+        std::vector<double> hw_state_velocities_;
+        std::vector<double> hw_state_efforts_;
 
         // Actuator commands
-        std::vector<float> hw_command_positions_;
-        std::vector<float> hw_command_velocities_;
-        std::vector<float> hw_command_efforts_;
-        std::vector<float> hw_command_kps_;
-        std::vector<float> hw_command_kds_;
-        std::vector<float> hw_command_kis_;
+        std::vector<double> hw_command_positions_;
+        std::vector<double> hw_command_velocities_;
+        std::vector<double> hw_command_efforts_;
+        std::vector<double> hw_command_kps_;
+        std::vector<double> hw_command_kds_;
+        std::vector<double> hw_command_kis_;
     };
 
 } // namespace pi3hat_hardware_interface

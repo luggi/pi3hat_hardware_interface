@@ -56,7 +56,6 @@ public:
             soft_start_duration_ms) 
     {
         odrive_can_ = ODriveCAN(can_id, can_bus);
-        buildReverseMap();
     };
 
     // ****************************************************** 
@@ -111,45 +110,9 @@ protected:
         TORQUE_MODE     = 5, 
      * 
      */
-    std::map<ActuatorState, ODriveAxisState> actuatorToODriveMap = {
-        {ERROR, AXIS_STATE_UNDEFINED},
-        {DISARMED, AXIS_STATE_IDLE},
-        {ARMED, AXIS_STATE_CLOSED_LOOP_CONTROL},
-        {POSITION_MODE, AXIS_STATE_CLOSED_LOOP_CONTROL},
-        {VELOCITY_MODE, AXIS_STATE_CLOSED_LOOP_CONTROL},
-        {TORQUE_MODE, AXIS_STATE_CLOSED_LOOP_CONTROL},
-        // ... continue mapping other states
-    };
+    ActuatorState getActuatorState();
 
-    std::map<ODriveAxisState, ActuatorState> odriveToActuatorMap;
-
-    void buildReverseMap() {
-        for (const auto& pair : actuatorToODriveMap) {
-            odriveToActuatorMap[pair.second] = pair.first;
-        }
-    }  
-
-    // Function to convert ActuatorState to ODriveAxisState
-    ODriveAxisState convertToODriveState(ActuatorState actuatorState) {
-        auto it = actuatorToODriveMap.find(actuatorState);
-        if (it != actuatorToODriveMap.end()) {
-            // Found the actuator state in the map, return the corresponding ODrive state
-            return it->second;
-        } else {
-            // Handle the case where the actuator state isn't found in the map
-            // This could throw an exception, return a default state, or handle it in some other way
-            throw std::runtime_error("ActuatorState not found in conversion map.");
-        }
-    }
-
-    ActuatorState convertToActuatorState(ODriveAxisState odriveState) {
-        auto it = odriveToActuatorMap.find(odriveState);
-        if (it != odriveToActuatorMap.end()) {
-            return it->second;
-        } else {
-            throw std::runtime_error("ODriveAxisState not found in conversion map.");
-        }
-    }
+    ActuatorState convertToActuatorState(ODriveCAN::ODriveState odrive_state_);
 
 private:
     void validateFrame(int index);

@@ -228,15 +228,9 @@ public:
 
     template<typename T>
     void writeFrame(mjbots::pi3hat::CanFrame& frame, T& msg) {
-        frame.data = {};
         msg.encode_buf(frame.data);
         frame.size = msg.msg_length;
         frame.id = (node_id_ << ODriveCAN::kNodeIdShift) | msg.cmd_id;
-        std::printf("Writing command %d. ", msg.cmd_id);
-        for (int i = 0; i < 8; i++) {
-            std::printf(" %d ", frame.data[i]);
-        }
-        std::printf("\n");
         return;
     }
     
