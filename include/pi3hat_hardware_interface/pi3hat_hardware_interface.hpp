@@ -20,6 +20,7 @@
 #include <vector>
 #include <functional>
 #include <optional>
+#include <ctime>
 
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/hardware_info.hpp"
@@ -45,6 +46,8 @@ namespace pi3hat_hardware_interface
     {
     public:
         RCLCPP_SHARED_PTR_DEFINITIONS(Pi3HatHardwareInterface)
+
+        ~Pi3HatHardwareInterface() override;
 
         /**
          * @details on_init is expected to vary depending on the URDF file. 
@@ -133,6 +136,15 @@ namespace pi3hat_hardware_interface
         void assign_frame(mjbots::pi3hat::CanFrame frame);
 
         void update_state_interfaces();
+
+        void busy_wait_us(unsigned long microsec) {
+            // Convert microseconds to clock ticks. std::CLOCKS_PER_SEC is the number of clock ticks per second.
+            std::clock_t end = std::clock() + (microsec * CLOCKS_PER_SEC / 1000000);
+            
+            while (std::clock() < end) {
+                // Busy wait
+            }
+        }
 
         int findIndex(const std::vector<int>& vec, int value) {
             for (size_t i = 0; i < vec.size(); ++i) {

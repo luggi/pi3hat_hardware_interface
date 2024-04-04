@@ -17,9 +17,9 @@
 
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, RegisterEventHandler
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler, TimerAction
 from launch.conditions import IfCondition
-from launch.event_handlers import OnProcessExit
+from launch.event_handlers import OnProcessExit, OnProcessStart
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 
 from launch_ros.actions import Node
@@ -32,14 +32,14 @@ def generate_launch_description():
     declared_arguments = []
     declared_arguments.append(
         DeclareLaunchArgument(
-            "gui",
-            default_value="true",
-            description="Start RViz2 automatically with this launch file.",
+            "robot_controller",
+            default_value="forward_position_controller",
+            choices=["forward_position_controller", "joint_trajectory_controller"],
+            description="Robot controller to start.",
         )
     )
 
-    # Initialize Arguments
-    gui = LaunchConfiguration("gui")
+    robot_controller = LaunchConfiguration("robot_controller")
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -103,11 +103,62 @@ def generate_launch_description():
         arguments=["imu_sensor_broadcaster", "--controller-manager", "/controller_manager"],
     )
 
-    # robot_controller_spawner = Node(
-    #     package="controller_manager",
-    #     executable="spawner",
-    #     arguments=["forward_position_controller", "--controller-manager", "/controller_manager"],
-    # )
+    robot_controller_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["forward_position_controller", "--controller-manager", "/controller_manager"],
+    )
+
+    # robot_controller_names = [robot_controller]
+    # robot_controller_spawners = []
+    # for controller in robot_controller_names:
+    #     robot_controller_spawners += [
+    #         Node(
+    #             package="controller_manager",
+    #             executable="spawner",
+    #             arguments=[controller, "-c", "/controller_manager"],
+    #         )
+    #     ]
+
+    # inactive_robot_controller_names = ["add_some_controller_name"]
+    # inactive_robot_controller_spawners = []
+    # for controller in inactive_robot_controller_names:
+    #     inactive_robot_controller_spawners += [
+    #         Node(
+    #             package="controller_manager",
+    #             executable="spawner",
+    #             arguments=[controller, "-c", "/controller_manager", "--inactive"],
+    #         )
+    #     ]
+
+    # # Delay loading and activation of robot_controller_names after `joint_state_broadcaster`
+    # delay_robot_controller_spawners_after_joint_state_broadcaster_spawner = []
+    # for i, controller in enumerate(robot_controller_spawners):
+    #     delay_robot_controller_spawners_after_joint_state_broadcaster_spawner += [
+    #         RegisterEventHandler(
+    #             event_handler=OnProcessExit(
+    #                 target_action=robot_controller_spawners[i - 1]
+    #                 if i > 0
+    #                 else joint_state_broadcaster_spawner,
+    #                 on_exit=[controller],
+    #             )
+    #         )
+    #     ]
+
+    # # Delay start of inactive_robot_controller_names after other controllers
+    # delay_inactive_robot_controller_spawners_after_joint_state_broadcaster_spawner = []
+    # for i, controller in enumerate(inactive_robot_controller_spawners):
+    #     delay_inactive_robot_controller_spawners_after_joint_state_broadcaster_spawner += [
+    #         RegisterEventHandler(
+    #             event_handler=OnProcessExit(
+    #                 target_action=inactive_robot_controller_spawners[i - 1]
+    #                 if i > 0
+    #                 else robot_controller_spawners[-1],
+    #                 on_exit=[controller],
+    #             )
+    #         )
+    #     ]
+
 
     # Delay rviz start after `joint_state_broadcaster`
     # delay_rviz_after_joint_state_broadcaster_spawner = RegisterEventHandler(
@@ -117,21 +168,40 @@ def generate_launch_description():
     #     )
     # )
 
-    # # Delay start of robot_controller after `joint_state_broadcaster`
-    # delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = RegisterEventHandler(
-    #     event_handler=OnProcessExit(
-    #         target_action=joint_state_broadcaster_spawner,
-    #         on_exit=[robot_controller_spawner],
-    #     )
-    # )
+    # # Delay loading and activation of `joint_state_broadcaster` after start of ros2_control_node
+    delay_joint_state_broadcaster_spawner_after_ros2_control_node = RegisterEventHandler(
+        event_handler=OnProcessStart(
+            target_action=control_node,
+            on_start=[
+                TimerAction(
+                    period=3.0,
+                    actions=[joint_state_broadcaster_spawner],
+                ),
+            ],
+        )
+    )
+
+    # Delay start of robot_controller after `joint_state_broadcaster`
+    delay_robot_controller_spawner_after_joint_state_broadcaster_spawner = RegisterEventHandler(
+        event_handler=OnProcessExit(
+            target_action=joint_state_broadcaster_spawner,
+            on_exit=[robot_controller_spawner],
+        )
+    )
 
     nodes = [
         control_node,
         robot_state_pub_node,
         joint_state_broadcaster_spawner,
         imu_sensor_broadcaster_spawner,
-        # delay_rviz_after_joint_state_broadcaster_spawner,
+        # delay_joint_state_broadcaster_spawner_after_ros2_control_node,
+        # # delay_rviz_after_joint_state_broadcaster_spawner,
         # delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]
 
-    return LaunchDescription(declared_arguments + nodes)
+    return LaunchDescription(
+        # declared_arguments
+        nodes
+        # + delay_robot_controller_spawners_after_joint_state_broadcaster_spawner
+        # + delay_inactive_robot_controller_spawners_after_joint_state_broadcaster_spawner
+    )

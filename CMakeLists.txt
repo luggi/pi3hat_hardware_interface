@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 3.8)
 project(pi3hat_hardware_interface)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -pg)
 endif()
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
+
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -48,6 +49,7 @@ target_link_libraries(ODriveCAN PRIVATE
 # Create a library target for ActuatorBase
 add_library(actuator_base SHARED
   src/actuators/actuator_base.cpp
+  include/pi3hat/pi3hat.cpp
 )
 
 # Create a library target for ODriveActuator, which depends on ActuatorBase
@@ -129,6 +131,7 @@ install(
 
 install(TARGETS
   pi3hat
+  actuator_base
   odrive_actuator
   # moteus_actuator
   ODriveCAN

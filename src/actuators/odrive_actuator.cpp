@@ -183,6 +183,70 @@ void ODriveActuator::ESTOP() {
     return;
 }
 
+/**
+ *  ODRIVE_ERROR_WATCHDOG_TIMER_EXPIRED      = 0x01000000,
+    ODRIVE_ERROR_ESTOP_REQUESTED             = 0x02000000,
+    ODRIVE_ERROR_SPINOUT_DETECTED            = 0x04000000,
+    ODRIVE_ERROR_BRAKE_RESISTOR_DISARMED     = 0x08000000,
+    ODRIVE_ERROR_THERMISTOR_DISCONNECTED     = 0x10000000,
+    ODRIVE_ERROR_CALIBRATION_ERROR           = 0x40000000,
+ */
+// defined in ODriveEnums.h ODriveError
+std::string ODriveActuator::printErrorMessage() {
+    uint32_t error_code = motor_state_.error_reason;
+    switch(error_code) {
+        case 0x00000000:
+            return "No Error";
+        case 0x00000001:
+            return "ODrive Error: Error Initializing";
+        case 0x00000002:
+            return "ODrive Error: System Level";
+        case 0x00000004:
+            return "ODrive Error: Timing Error";
+        case 0x00000008:
+            return "ODrive Error: Missing Estimate";
+        case 0x00000010:
+            return "ODrive Error: Bad Configuration";
+        case 0x00000020:
+            return "ODrive Error: DRV Fault";
+        case 0x00000040:
+            return "ODrive Error: Missing Input";
+        case 0x00000100:
+            return "ODrive Error: DC Bus Over Voltage";
+        case 0x00000200:
+            return "ODrive Error: DC Bus Under Voltage";
+        case 0x00000400:
+            return "ODrive Error: DC Bus Over Current";
+        case 0x00000800:
+            return "ODrive Error: DC Bus Over Regen Current";
+        case 0x00001000:
+            return "ODrive Error: Current Limit Violation";
+        case 0x00002000:
+            return "ODrive Error: Motor Over Temp";
+        case 0x00004000:
+            return "ODrive Error: Inverter Over Temp";
+        case 0x00008000:
+            return "ODrive Error: Velocity Limit Violation";
+        case 0x00010000:
+            return "ODrive Error: Position Limit Violation";
+        case 0x01000000:
+            return "ODrive Error: Watchdog Timer Expired";
+        case 0x02000000:
+            return "ODrive Error: ESTOP Requested";
+        case 0x04000000:
+            return "ODrive Error: Spinout Detected";
+        case 0x08000000:
+            return "ODrive Error: Brake Resistor Disarmed";
+        case 0x10000000:
+            return "ODrive Error: Thermistor Disconnected";
+        case 0x40000000:
+            return "ODrive Error: Calibration Error";
+        default:
+            return "ODrive Error: Unknown Error";
+    }
+    
+}
+
 void ODriveActuator::processRxFrames() {
     for (auto& frame : rx_frames_) {
         odrive_can_.readFrame(frame);
@@ -252,6 +316,7 @@ ActuatorState ODriveActuator::convertToActuatorState(ODriveCAN::ODriveState odri
                 return ActuatorState::ARMED;
         }
     } else {
+        // this would indicate the motor is in some sort of calibration state or something bad happened.
         throw std::runtime_error("There was an error converting the ODrive State."); 
     }
 }

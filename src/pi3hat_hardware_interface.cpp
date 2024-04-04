@@ -23,6 +23,11 @@
 
 namespace pi3hat_hardware_interface
 {
+    Pi3HatHardwareInterface::~Pi3HatHardwareInterface()
+    {
+        on_deactivate(rclcpp_lifecycle::State());
+    }
+
     /**
      * @brief on_init
      *
@@ -117,8 +122,8 @@ namespace pi3hat_hardware_interface
         // TODO: To fully support moteus this should use the fd frame.
         // Configure the Pi3Hat CAN for non-FD mode without bitrate switching or automatic retranmission
         mjbots::pi3hat::Pi3Hat::CanConfiguration can_config;
-        can_config.fast_bitrate = 500000;
-        can_config.slow_bitrate = 500000;
+        can_config.fast_bitrate = 1000000;
+        can_config.slow_bitrate = 1000000;
         can_config.fdcan_frame = false;
         can_config.bitrate_switch = false;
         can_config.automatic_retransmission = false;
@@ -235,7 +240,7 @@ namespace pi3hat_hardware_interface
         }
         {
             struct sched_param params = {};
-            params.sched_priority = 10;
+            params.sched_priority = 20;
             const int r = ::sched_setscheduler(0, SCHED_RR, &params);
             if (r < 0)
             {
@@ -250,6 +255,7 @@ namespace pi3hat_hardware_interface
             }
         }
         
+        // TODO: refactor this function from here on -- has redundant code
         // onInit() -> Set all actuators to IDLE
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
@@ -257,7 +263,7 @@ namespace pi3hat_hardware_interface
             RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Sending Actuator at Joint %d to idle...", i);
         }
         mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
-        sleep(1);
+        busy_wait_us(1000000); // wait for 1 second
 
         // give the input to the distribute_rx_input function
         distribute_rx_input(result);
@@ -282,7 +288,7 @@ namespace pi3hat_hardware_interface
         for (auto i = 0u; i < 3; i++)
         {
             pi3hat_->Cycle(pi3hat_input_);
-            sleep(1);
+            busy_wait_us(1000000); // wait for 1 second
         }
 
         RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Pi3HatHardwareInterface successfully initialized!");
@@ -383,7 +389,7 @@ namespace pi3hat_hardware_interface
             hw_actuators_[i]->setState(ActuatorState::ARMED);
         }
         pi3hat_->Cycle(pi3hat_input_);
-        sleep(1);
+        busy_wait_us(1000000); // wait for 1 second
 
         // onActivate() -> Enable all actuators
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
@@ -391,8 +397,9 @@ namespace pi3hat_hardware_interface
             RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Setting Joint %d state to Position Mode", i);
             hw_actuators_[i]->setState(ActuatorState::POSITION_MODE);
         }
+        pi3hat_->Cycle(pi3hat_input_);
+        busy_wait_us(500000); // wait for 0.5 second
         mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
-        sleep(1);
 
         if (result.error)
         {
@@ -447,7 +454,7 @@ namespace pi3hat_hardware_interface
 
         }
         pi3hat_->Cycle(pi3hat_input_);
-        sleep(1);
+        busy_wait_us(1000000); // wait for 1 second
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
             switch (hw_actuator_can_protocols_[i])
@@ -466,7 +473,7 @@ namespace pi3hat_hardware_interface
 
         }
         pi3hat_->Cycle(pi3hat_input_);
-        sleep(1);
+        busy_wait_us(1000000); // wait for 1 second
 
         RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Successfully deactivated!");
 
@@ -496,7 +503,7 @@ namespace pi3hat_hardware_interface
             break;
         }
         mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
-        sleep(1);
+        busy_wait_us(1000000); // wait for 1 second
 
         if (result.error)
         {
@@ -511,6 +518,8 @@ namespace pi3hat_hardware_interface
         for (auto i = 0u; i < hw_state_positions_.size(); i++) 
         {
             hw_actuators_[i]->processRxFrames();
+
+            RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Actuator %i errors: ", i, hw_actuators_[i]->printErrorMessage());
             
             // Check if the actuator is in position mode
             if (hw_actuators_[i]->getState() != ActuatorState::ERROR)
@@ -588,7 +597,7 @@ namespace pi3hat_hardware_interface
         {
             RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Pi3Hat::Cycle() failed!");
             return hardware_interface::return_type::ERROR;
-        }
+        }    
 
         // Update the IMU state if attitude data is available
         if (result.attitude_present)
@@ -621,15 +630,6 @@ namespace pi3hat_hardware_interface
             hw_state_imu_linear_acceleration_[0] = pi3hat_input_.attitude->accel_mps2.x;
             hw_state_imu_linear_acceleration_[1] = pi3hat_input_.attitude->accel_mps2.y;
             hw_state_imu_linear_acceleration_[2] = pi3hat_input_.attitude->accel_mps2.z;
-        }
-        
-        if (result.error)
-        {
-            RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Pi3Hat::Cycle() failed!");
-            return hardware_interface::return_type::ERROR;
-        } else {
-            // give the input to the distribute_rx_input function
-            distribute_rx_input(result);
         }
 
         // write() -> Read and update the actuator states if data is available

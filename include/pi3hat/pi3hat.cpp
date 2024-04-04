@@ -1266,11 +1266,12 @@ class Pi3Hat::Impl {
   void SendCanPacket(const CanFrame& can_frame) {
     switch (can_frame.bus) {
       case 1: {
-        std::printf("CAN id: 0x%x  ", can_frame.id);
-        for(int i = 0; i < 8; i++) {
-          std::printf(" %d", can_frame.data[i]);
-        }
-        std::printf("\n");
+        // DEBUG Printout for testing
+        // std::printf("CAN id: 0x%x  ", can_frame.id);
+        // for(int i = 0; i < 8; i++) {
+        //   std::printf(" %d", can_frame.data[i]);
+        // }
+        // std::printf("\n");
         SendCanPacketSpi(aux_spi_, 0, 0, can_frame);
         break;
       }

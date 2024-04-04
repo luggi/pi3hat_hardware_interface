@@ -80,6 +80,7 @@ public:
     void clearErrors() override;
     // update the motor state and motor command based on odrive_can_ state 
     bool updateStateVars() override;
+    std::string printErrorMessage() override;
 
     void setTxSpan(std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> tx_frames) override
     {

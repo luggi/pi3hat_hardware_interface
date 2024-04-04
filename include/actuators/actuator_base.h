@@ -260,6 +260,9 @@ public:
 
     virtual bool updateStateVars() = 0;
 
+    virtual std::string printErrorMessage() = 0;
+
+
 protected:
     
 
