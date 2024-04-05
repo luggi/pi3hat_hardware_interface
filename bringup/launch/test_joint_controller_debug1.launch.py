@@ -13,13 +13,13 @@
 # limitations under the License.
 
 # To run:
-# sudo -E bash src/pi3hat_hardware_interface/run_as_root.sh ros2 launch src/pi3hat_hardware_interface/bringup/launch/test_joint_controller.launch.py
+# sudo -E bash src/pi3hat_hardware_interface/run_as_root.sh ros2 launch src/pi3hat_hardware_interface/bringup/launch/test_joint_controller_debug1.launch.py
 
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, RegisterEventHandler
+from launch.actions import DeclareLaunchArgument, RegisterEventHandler, TimerAction
 from launch.conditions import IfCondition
-from launch.event_handlers import OnProcessExit
+from launch.event_handlers import OnProcessExit, OnProcessStart
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 
 from launch_ros.actions import Node
@@ -28,6 +28,18 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    # Declare arguments
+    declared_arguments = []
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "robot_controller",
+            default_value="forward_position_controller",
+            choices=["forward_position_controller", "joint_trajectory_controller"],
+            description="Robot controller to start.",
+        )
+    )
+
+    robot_controller = LaunchConfiguration("robot_controller")
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -62,13 +74,29 @@ def generate_launch_description():
         remappings=[
             ("~/robot_description", "/robot_description"),
         ],
-        prefix=['valgrind --tool=callgrind'],
+        prefix=['valgrind --tool=callgrind --dump-instr=yes -v --collect-systime=yes --instr-atstart=no --vgdb=yes'],
+        # prefix=['valgrind --tool=helgrind -v --vgdb=yes'],
+    )
+
+    robot_state_pub_node = Node(
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        output="both",
+        parameters=[robot_description],
+    )
+
+    joint_state_broadcaster_spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
 
     nodes = [
         control_node,
-        # # delay_rviz_after_joint_state_broadcaster_spawner,
-        # delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
+        robot_state_pub_node,
     ]
 
-    return LaunchDescription(nodes)
+    return LaunchDescription(
+        # declared_arguments
+        nodes
+    )

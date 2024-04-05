@@ -94,19 +94,19 @@ def generate_launch_description():
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager", "--controller-manager-timeout", "20"],
     )
 
     imu_sensor_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["imu_sensor_broadcaster", "--controller-manager", "/controller_manager"],
+        arguments=["imu_sensor_broadcaster", "--controller-manager", "/controller_manager", "--controller-manager-timeout", "20"],
     )
 
     robot_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["forward_position_controller", "--controller-manager", "/controller_manager"],
+        arguments=["forward_position_controller", "--controller-manager", "/controller_manager", "--controller-manager-timeout", "20"],
     )
 
     # robot_controller_names = [robot_controller]

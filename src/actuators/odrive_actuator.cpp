@@ -46,7 +46,7 @@ void ODriveActuator::setState(ActuatorState state) {
             break;
         case ActuatorState::POSITION_MODE: // must be armed to enter position mode
         {
-            std::cout << "Setting ODrive State to Position Mode" << std::endl;
+            std::printf("Setting ODrive %i State to Position Mode\n", can_id_);
             // if the previous state was not closed loop control, set it to closed loop control
             int frame_idx = 0;
             if (prev_axis_state_ != ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL) {

@@ -11,6 +11,7 @@
 #define ODRIVECAN_H
 
 #include <time.h>
+#include <iostream>
 
 #include "ODriveEnums.h"
 #include "can_helpers.hpp"

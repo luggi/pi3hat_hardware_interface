@@ -196,6 +196,7 @@ namespace pi3hat_hardware_interface
                 // allocate the actuator's outgoing CAN Frame Span and assign it
                 hw_actuators_[i]->setTxSpan(allocateTxSpan(TxAllocation::ODRIVE_TX));
                 hw_actuators_[i]->invalidateSpan();
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Created an ODrive Actuator at joint %d and allocated %i CAN Frames", i, TxAllocation::ODRIVE_TX);
                 break;
             }
             default:
@@ -225,10 +226,12 @@ namespace pi3hat_hardware_interface
 
         // onInit() -> Configure realtime scheduling
         {
-            int realtime_cpu = 0;
+            int realtime_cpu1 = 0; // first core
+            int realtime_cpu2 = 1; // second core
             cpu_set_t cpuset = {};
             CPU_ZERO(&cpuset);
-            CPU_SET(realtime_cpu, &cpuset);
+            CPU_SET(realtime_cpu1, &cpuset); // set first core
+            CPU_SET(realtime_cpu2, &cpuset); // set second core
 
             const int r = ::sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
             if (r < 0)
@@ -236,11 +239,11 @@ namespace pi3hat_hardware_interface
                 throw std::runtime_error("Error setting CPU affinity");
             }
 
-            std::cout << "Affinity set to " << realtime_cpu << "\n";
+            std::cout << "Affinity set to CPUs " << realtime_cpu1 << " and " << realtime_cpu2 << "\n";
         }
         {
             struct sched_param params = {};
-            params.sched_priority = 20;
+            params.sched_priority = 10;
             const int r = ::sched_setscheduler(0, SCHED_RR, &params);
             if (r < 0)
             {
@@ -265,6 +268,18 @@ namespace pi3hat_hardware_interface
         mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
         busy_wait_us(1000000); // wait for 1 second
 
+        // onInit() -> Set the zero position for each actuator
+        for (auto i = 0u; i < hw_state_positions_.size(); i++)
+        {
+            hw_actuators_[i]->setState(ActuatorState::DISARMED);
+        }
+        // cycle 3 times to ensure the zero position is set
+        for (auto i = 0u; i < 3; i++)
+        {
+            result = pi3hat_->Cycle(pi3hat_input_);
+            busy_wait_us(500000); // wait for 1 second
+        }
+
         // give the input to the distribute_rx_input function
         distribute_rx_input(result);
 
@@ -273,22 +288,6 @@ namespace pi3hat_hardware_interface
         {
             hw_actuators_[i]->processRxFrames();
             RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Checking Connection to Actuator %d...", i);
-        }
-
-        // onInit() -> Set the zero position for each actuator
-        for (auto i = 0u; i < hw_state_positions_.size(); i++)
-        {
-            switch (hw_actuator_can_protocols_[i])
-            {
-                hw_actuators_[i]->setState(ActuatorState::DISARMED);
-                break;
-            }
-        }
-        // cycle 3 times to ensure the zero position is set
-        for (auto i = 0u; i < 3; i++)
-        {
-            pi3hat_->Cycle(pi3hat_input_);
-            busy_wait_us(1000000); // wait for 1 second
         }
 
         RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Pi3HatHardwareInterface successfully initialized!");
@@ -388,45 +387,54 @@ namespace pi3hat_hardware_interface
             RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Setting Joint %d state to ARMED", i);
             hw_actuators_[i]->setState(ActuatorState::ARMED);
         }
-        pi3hat_->Cycle(pi3hat_input_);
+        mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
         busy_wait_us(1000000); // wait for 1 second
 
-        // onActivate() -> Enable all actuators
-        for (auto i = 0u; i < hw_state_positions_.size(); i++)
+        // try 3 times to ensure the actuators are enabled
+        for (auto attempt = 0u; attempt < 3; attempt++)
         {
-            RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Setting Joint %d state to Position Mode", i);
-            hw_actuators_[i]->setState(ActuatorState::POSITION_MODE);
-        }
-        pi3hat_->Cycle(pi3hat_input_);
-        busy_wait_us(500000); // wait for 0.5 second
-        mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
-
-        if (result.error)
-        {
-            RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Pi3Hat::Cycle() failed!");
-            return hardware_interface::CallbackReturn::ERROR;
-        } else {
-            // give the input to the distribute_rx_input function
-            distribute_rx_input(result);
-        }
-        
-        // Read the feedback from the actuators
-        for (auto i = 0u; i < hw_state_positions_.size(); i++) 
-        {
-            hw_actuators_[i]->processRxFrames();
-            RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Checking Connection to Actuator %d...", i);
-            
-            // Check if the actuator is in position mode
-            if (hw_actuators_[i]->getState() != ActuatorState::POSITION_MODE)
+            // onActivate() -> Enable all actuators
+            for (auto i = 0u; i < hw_state_positions_.size(); i++)
             {
-                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to activate: Actuator %d not in position mode", i);
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Setting Joint %d state to Position Mode", i);
+                hw_actuators_[i]->setState(ActuatorState::POSITION_MODE);
+            }
+            result = pi3hat_->Cycle(pi3hat_input_);
+            busy_wait_us(200000); // wait for 0.5 second
+
+            if (result.error)
+            {
+                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Pi3Hat::Cycle() failed!");
                 return hardware_interface::CallbackReturn::ERROR;
+            } else {
+                // give the input to the distribute_rx_input function
+                distribute_rx_input(result);
+            }
+
+            int enabled_count = 0;
+
+            // Read the feedback from the actuators
+            for (auto i = 0u; i < hw_state_positions_.size(); i++) 
+            {
+                hw_actuators_[i]->processRxFrames();                
+                // Check if the actuator is in position mode
+                if (hw_actuators_[i]->getState() == ActuatorState::POSITION_MODE )
+                {
+                    RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Attempt %i: Actuator %i in position mode", attempt, i);
+                    enabled_count++;
+                } else {
+                    RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Attempt %i: Actuator %i NOT in position mode", attempt, i);
+                }
+            }
+            if (enabled_count == hw_state_positions_.size())
+            {
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Successfully activated!");
+                return hardware_interface::CallbackReturn::SUCCESS;
             }
         }
 
-        RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Successfully activated!");
-
-        return hardware_interface::CallbackReturn::SUCCESS;
+        RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to activate: Some actuators are not in position mode");
+        return hardware_interface::CallbackReturn::ERROR;   
     }
 
     hardware_interface::CallbackReturn Pi3HatHardwareInterface::on_deactivate(
@@ -502,8 +510,9 @@ namespace pi3hat_hardware_interface
             hw_actuators_[i]->setState(ActuatorState::ERROR);
             break;
         }
-        mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
+        pi3hat_->Cycle(pi3hat_input_);
         busy_wait_us(1000000); // wait for 1 second
+        mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
 
         if (result.error)
         {
@@ -519,7 +528,7 @@ namespace pi3hat_hardware_interface
         {
             hw_actuators_[i]->processRxFrames();
 
-            RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Actuator %i errors: ", i, hw_actuators_[i]->printErrorMessage());
+            RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Actuator %i errors: %s", i, hw_actuators_[i]->printErrorMessage().c_str());
             
             // Check if the actuator is in position mode
             if (hw_actuators_[i]->getState() != ActuatorState::ERROR)

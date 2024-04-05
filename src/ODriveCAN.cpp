@@ -167,7 +167,11 @@ bool ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
     ODriveState new_odrive_state = odrive_state;
     
     // guard to ensure we only process frames from the correct node
-    if (node_id_ != (id >> ODriveCAN::kNodeIdShift)) return false;
+    if (node_id_ != (id >> ODriveCAN::kNodeIdShift)) {
+        std::cout << "Was given frame for node " << (id >> ODriveCAN::kNodeIdShift) << " but expected node " << node_id_ << "\n";
+
+        return false;
+    }
 
     switch (id & ODriveCAN::kCmdIdBits) 
     {
@@ -183,6 +187,7 @@ bool ODriveCAN::readFrame(mjbots::pi3hat::CanFrame frame)
         // Read the heartbeat message from the ODrive
         case Heartbeat_msg_t::cmd_id: 
         {
+            // std::cout << "Received heartbeat message\n";
             Heartbeat_msg_t status;
             status.decode_buf(data);
             new_odrive_state.axis_state = static_cast<ODriveAxisState>(status.Axis_State);
@@ -230,7 +235,9 @@ void ODriveCAN::onReceive(uint32_t id, uint8_t length, const uint8_t* data) {
     while (byte_index >= 0) Serial.print(msg.data[byte_index--], HEX);
     Serial.println("");
 #endif // DEBUG
-    if (node_id_ != (id >> ODriveCAN::kNodeIdShift)) return;
+    if (node_id_ != (id >> ODriveCAN::kNodeIdShift)) {
+        return;
+    }
     switch(id & ODriveCAN::kCmdIdBits) {
         case Get_Encoder_Estimates_msg_t::cmd_id: {
             Get_Encoder_Estimates_msg_t estimates;

@@ -177,7 +177,7 @@ namespace pi3hat_hardware_interface
             CHEETAH_RX     = 1,
             MYACTUATOR_RX  = 1,
             MOTEUS_RX      = 1,
-            ODRIVE_RX      = 6,
+            ODRIVE_RX      = 12,
         };
 
         const unsigned char cheetahEnableMsg[8] = {0xFF, 0xFF, 0xFF, 0xFF,
