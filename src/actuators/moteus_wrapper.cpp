@@ -11,10 +11,10 @@
 #include "actuators/moteus_actuator.h"
 #include "moteus.h"
 
-//bool Moteus_Protocol::configure(const MotorConfig config) {
+//bool MoteusActuator::configure(const MotorConfig config) {
 
 
-void Moteus_Protocol::setState(ActuatorState state) {
+void MoteusActuator::setState(ActuatorState state) {
 
     if (motor_state_.error ) {
         state = ActuatorState::ERROR;  
@@ -22,7 +22,7 @@ void Moteus_Protocol::setState(ActuatorState state) {
 
     switch (state) {
         case ActuatorState::ERROR:
-            tx_frames_[0] = moteus_actuator_.MakeStop();
+            tx_frames_[0] = convert_frame(moteus_controller_.MakeStop());
             motor_command_.commanded_actuator_state_ = ActuatorState::ERROR;
             break;
         // These cases fall through and do the same thing.
@@ -31,68 +31,78 @@ void Moteus_Protocol::setState(ActuatorState state) {
         case ActuatorState::TORQUE_MODE: 
         {
             // TODO: check if its okay to send a position command -> were we in an error state? etc.
-            moteus::PositionMode::Command cmd;
+            mjbots::moteus::PositionMode::Command cmd;
             cmd.position = std::numeric_limits<double>::quiet_NaN();
             cmd.velocity = 0.0;
 
-            tx_frames_[0] = moteus_actuator_.MakePosition(cmd);
+            tx_frames_[0] = moteus_controller_.MakePosition(cmd);
+            break;
+        }
+
+        case ActuatorState::DISARMED:
+        {
+            // todo
+            break;
         }
             
             
 
     }
 
+    return;
+
 }
 
 //To do Set position, Set state
 
-void Moteus_Protocol::setPosition( float position) {
+void MoteusActuator::setPosition( float position) {
 
-    moteus::PositionMode::Command cmd;
+    mjbots::moteus::PositionMode::Command cmd;
 
     cmd.position = position;
     cmd.velocity = 0.0;
 
-    tx_frames[0] = moteus_actuator;
-
-
-
+    // TODO: complete
+    // tx_frames_[0] = moteus_controller_;
 
 }
 
-void Moteus_Protocol::setVelocity(float velocity) {
+void MoteusActuator::setVelocity(float velocity) {
 
-    moteus::PositionMode::Command cmd;
+    mjbots::moteus::PositionMode::Command cmd;
 
     cmd.velocity = velocity;
     cmd.position = std::numeric_limits<double>::quiet_NaN();
 
-    tx_frames[0] = moteus_actuator;
+    // TODO: complete
+    // tx_frames_[0] = moteus_controller_.;
 
 }
 
-void Moteus_Protocol::set_kp(float kp ) {
+void MoteusActuator::set_kp(float kp ) {
 
-    moteus::PositionMode::Command cmd;
+    mjbots::moteus::PositionMode::Command cmd;
 
     cmd.kp_scale = kp;
 
-    tx_frames[0] = moteus_actuator;
+    // TODO: complete
+    // tx_frames_[0] = moteus_controller_;
     
 }
 
-void Moteus_Protocol::set_kd(float kd ) {
+void MoteusActuator::set_kd(float kd ) {
 
-    moteus::PositionMode::Command cmd;
+    mjbots::moteus::PositionMode::Command cmd;
 
     cmd.kd_scale = kd;
 
-    tx_frames[0] = moteus_actuator;
+    // TODO: complete
+    // tx_frames_[0] = moteus_controller_;
 
 }
 
 //TO DO: Implement KI
-/*void Moteus_Protocol::set_ki(float ki ) {
+/*void MoteusActuator::set_ki(float ki ) {
 
     moteus::PositionMode::Command cmd;
 
@@ -104,9 +114,21 @@ void Moteus_Protocol::set_kd(float kd ) {
 
 */
 
-void Moteus_Protocol::sendJointCommand(float position, float ff_velocity, float ff_torque) {
+void MoteusActuator::processRxFrames() {
+    for (int i = 0; i < rx_frames_.size(); i++) {
+        if (rx_frames_[i].valid) {
+            readCANFrame(rx_frames_[i]);
+        }
+    }
 
-    moteus::PositionMode::Command cmd;
+    // clear all frames
+    rx_frames_.clear(); 
+    
+}
+
+void MoteusActuator::sendJointCommand(float position, float ff_velocity, float ff_torque) {
+
+    mjbots::moteus::PositionMode::Command cmd;
 
     cmd.feedforward_torque = ff_torque;
 
@@ -114,28 +136,23 @@ void Moteus_Protocol::sendJointCommand(float position, float ff_velocity, float 
 
     cmd.velocity = ff_velocity;
 
-    tx_frames[0] = moteus_actuator;
+    // TODO: complete
+    // tx_frames_[0] = moteus_controller_;
 
 
 }
 
-//TO DO: Implement Send Query Command, What is the function of this? Is Generic Query ok for this?
-void Moteus_Protocol::sendQueryCommand() {
-
-    //moteus::GenericQuery
-
+// Note: probably wont use this function
+void MoteusActuator::sendQueryCommand() {
+    return;
 }
 
+void MoteusActuator::ESTOP() {
 
-
-
-
-void Moteus_Protocol::ESTOP() {
-
-    moteus_actuator.MakeStop()
+    moteus_controller_.MakeStop();
    
 
-    motor_command_.actuator_state_ = ActuatorState::ERROR;
+    motor_command_.commanded_actuator_state_ = ActuatorState::ERROR;
     motor_state_.error = true;
 
     // invalidate all other frames
@@ -145,11 +162,51 @@ void Moteus_Protocol::ESTOP() {
 
 }
 
-void Moteus_Protocol::readCANFrame(mjbots::pi3hat::CanFrame frame) {
+void MoteusActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
 
+    // 1. convert the incoming pi3hat frame to a moteus frame
+    mjbots::moteus::CanFdFrame moteus_frame = convert_frame(frame);
+
+    // 2. create a result object and parse the frame
+    mjbots::moteus::Controller::Result result;
+    result.frame = moteus_frame;
+    result.values = Query::Parse(moteus_frame->data, moteus_frame->size);
     
-  
+    // 3. update the internal motor state variables
+
+    /*
+        appropriately update these:
+
+        ActuatorState current_actuator_state_ = ActuatorState::DISARMED;
+        bool connected = false;
+        bool error = false;
+        int error_reason = 0;
+        float position_ = 0.0f;
+        float velocity_ = 0.0f;
+        float torque_ = 0.0f;
+        float temperature = 0.0f;
+    */
 
 
+   return;
+}
+
+// TODO: add nodiscard decorator to functions
+mjbots::moteus::CanFdFrame MoteusActuator::convert_frame(mjbots::pi3hat::CanFrame frame) {
+
+    mjbots::moteus::CanFdFrame moteus_frame;
+
+    // Maybe as inspiration (but this isnt exactly correct):
+    // moteus_frame.id = frame.id;
+    // moteus_frame.size = frame.size;
+    // moteus_frame.bus = frame.bus;
+    // moteus_frame.expect_reply = frame.expect_reply;
+
+    // moteus_frame.data = frame.data;
+
+
+    return moteus_frame;
 
 }
+
+// Todo: implement other convert_frame function

@@ -13,13 +13,13 @@
 
 #include <map>
 
-// #include "moteus_protocol.h" 
+#include "moteus.h" 
 #include "actuator_base.h"
 #include "moteus/MoteusEnums.h"
 
-class Moteus_Protocol : public ActuatorBase {
+class MoteusActuator : public ActuatorBase {
 public:
-    Moteus_Protocol(
+    MoteusActuator(
         int can_id,
         int can_bus,
         const std::string name,
@@ -49,11 +49,11 @@ public:
         options.bus = can_bus;
         // other necessary options
 
-        moteus_controller_ = moteus::Controller(options);
+        moteus_controller_ = mjbots::moteus::Controller(options);
 
     };
 
-    ~Moteus_Protocol();
+    ~MoteusActuator();
     
     // Configuration function to initialize the PiHat for given CAN protocol and bus
     bool configure(const MotorConfig config);
@@ -75,13 +75,14 @@ public:
     void set_kp(float kp) override;
     void set_kd(float kd) override;
     void set_ki(float ki) override;
+    void processRxFrames() override;
     void sendQueryCommand() override;
     void setProperty() override;
     void ESTOP() override;
     void readCANFrame(mjbots::pi3hat::CanFrame frame) override;
     void clearErrors() override;
 
-    protected:
+protected:
     /**
      * @brief Translates from the interface enumeration to the Moteus axis state enumeration
      * 
@@ -104,13 +105,16 @@ public:
         {ARMED,kstopped},
         {POSITION_MODE,kPosition},
         {VELOCITY_MODE,kPosition},
-        {TORQUE_MODE,kCurrent},
+        {TORQUE_MODE,kCurrent}
     
     };
 private:
 
-moteus::Controller::Options options;
-moteus::Controller moteus_controller_;
+    mjbots::pi3hat::CanFrame convert_frame(mjbots::moteus::CanFdFrame frame);
+    mjbots::moteus::CanFdFrame convert_frame(mjbots::pi3hat::CanFrame frame);
+
+    mjbots::moteus::Controller::Options options;
+    mjbots::moteus::Controller moteus_controller_;
 
 
 };

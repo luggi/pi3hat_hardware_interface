@@ -252,6 +252,7 @@ protected:
 // it gets fully flushed every cycle command? I think that it does get flushed by cycle, so we
 // can instead fill it from index 0 every command.
     mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_frames_;
+    // rx_frames_ 
 
 };
 
