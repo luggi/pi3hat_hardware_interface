@@ -188,25 +188,38 @@ void MoteusActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
     */
 
 
+
+
    return;
 }
 
-// TODO: add nodiscard decorator to functions
-mjbots::moteus::CanFdFrame MoteusActuator::convert_frame(mjbots::pi3hat::CanFrame frame) {
+
+[[nodiscard]] mjbots::moteus::CanFdFrame MoteusActuator::convert_frame(mjbots::pi3hat::CanFrame frame) {
 
     mjbots::moteus::CanFdFrame moteus_frame;
 
-    // Maybe as inspiration (but this isnt exactly correct):
-    // moteus_frame.id = frame.id;
-    // moteus_frame.size = frame.size;
-    // moteus_frame.bus = frame.bus;
-    // moteus_frame.expect_reply = frame.expect_reply;
-
-    // moteus_frame.data = frame.data;
+    moteus_frame.arbitration_id = frame.id;
+    moteus_frame.size = frame.size;
+    moteus_frame.bus = frame.bus;
+    moteus_frame.reply_required = frame.expect_reply;
+    moteus_frame.data[64] = frame.data[64];
 
 
     return moteus_frame;
 
 }
 
-// Todo: implement other convert_frame function
+
+[[nodiscard]] mjbots::pi3hat::CanFrame MoteusActuator::convert_frame(mjbots::moteus::CanFdFrame frame) {
+
+    mjbots::pi3hat::CanFrame pi3hat_frame;
+
+    pi3hat_frame.id = frame.arbitration_id;
+    pi3hat_frame.size = frame.size;
+    pi3hat_frame.bus = frame.bus;
+    pi3hat_frame.expect_reply = frame.reply_required;
+    pi3hat_frame.data[64] = frame.data[64];
+
+
+
+}
