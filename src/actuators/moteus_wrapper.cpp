@@ -11,6 +11,7 @@
 #include "actuators/moteus_actuator.h"
 #include "moteus.h"
 
+
 //bool MoteusActuator::configure(const MotorConfig config) {
 
 
@@ -166,9 +167,37 @@ void MoteusActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
     // 2. create a result object and parse the frame
     mjbots::moteus::Controller::Result result;
     result.frame = moteus_frame;
-    result.values = Query::Parse(moteus_frame->data, moteus_frame->size);
+    result.values = mjbots::moteus::Query::Parse(moteus_frame.data, moteus_frame.size);
     
     // 3. update the internal motor state variables
+    
+    if (!std::isnan(result.values.position))
+    {
+        motor_state_.position_ = result.values.position;
+    }
+
+    if (!std::isnan(result.values.velocity))
+    {  
+        motor_state_.velocity_ = result.values.velocity;
+        
+    }
+    if (!std::isnan(result.values.torque))
+    { 
+       motor_state_.torque_ = result.values.torque;
+    }
+    if (!std::isnan(result.values.temperature))
+    {
+         motor_state_.temperature =result.values.temperature;
+    }
+    
+    motor_state_.error_reason = result.values.fault;
+
+    if (result.values.mode == mjbots::moteus::Mode::kFault) 
+    {
+        motor_state_.error = true;
+    } else {
+        motor_state_.error = false;
+    }
 
     /*
         appropriately update these:
@@ -216,6 +245,6 @@ void MoteusActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
     pi3hat_frame.expect_reply = frame.reply_required;
     pi3hat_frame.data[64] = frame.data[64];
 
-
+    return pi3hat_frame;
 
 }

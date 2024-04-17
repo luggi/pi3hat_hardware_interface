@@ -9,6 +9,7 @@
 
 #include "pi3hat/pi3hat.h"
 
+#define NaN std::numeric_limits<double>::quiet_NaN();
 
 // ******************************************************
 // Structs and Enums
