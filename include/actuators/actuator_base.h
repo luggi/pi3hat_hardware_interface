@@ -9,6 +9,7 @@
 
 #include "pi3hat/pi3hat.h"
 
+#define NaN std::numeric_limits<double>::quiet_NaN();
 
 // ******************************************************
 // Structs and Enums
@@ -313,6 +314,7 @@ protected:
 // it gets fully flushed every cycle command? I think that it does get flushed by cycle, so we
 // can instead fill it from index 0 every command.
     mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame> tx_frames_;
+    // rx_frames_ 
 
     std::vector<mjbots::pi3hat::CanFrame> rx_frames_;
 
