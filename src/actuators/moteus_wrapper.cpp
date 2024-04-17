@@ -35,13 +35,15 @@ void MoteusActuator::setState(ActuatorState state) {
             cmd.position = std::numeric_limits<double>::quiet_NaN();
             cmd.velocity = 0.0;
 
-            tx_frames_[0] = moteus_controller_.MakePosition(cmd);
+            tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
             break;
         }
 
         case ActuatorState::DISARMED:
         {
             // todo
+            tx_frames_[0] = convert_frame(moteus_controller_.MakeStop());
+            motor_command_.commanded_actuator_state_ = ActuatorState::DISARMED;
             break;
         }
             
@@ -62,8 +64,8 @@ void MoteusActuator::setPosition( float position) {
     cmd.position = position;
     cmd.velocity = 0.0;
 
-    // TODO: complete
-    // tx_frames_[0] = moteus_controller_;
+    // TODO:
+     tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
 
 }
 
@@ -74,9 +76,8 @@ void MoteusActuator::setVelocity(float velocity) {
     cmd.velocity = velocity;
     cmd.position = std::numeric_limits<double>::quiet_NaN();
 
-    // TODO: complete
-    // tx_frames_[0] = moteus_controller_.;
-
+    // TODO: 
+    tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
 }
 
 void MoteusActuator::set_kp(float kp ) {
@@ -85,8 +86,8 @@ void MoteusActuator::set_kp(float kp ) {
 
     cmd.kp_scale = kp;
 
-    // TODO: complete
-    // tx_frames_[0] = moteus_controller_;
+    // TODO: 
+    tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
     
 }
 
@@ -96,23 +97,18 @@ void MoteusActuator::set_kd(float kd ) {
 
     cmd.kd_scale = kd;
 
-    // TODO: complete
-    // tx_frames_[0] = moteus_controller_;
+    // TODO: 
+    tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
 
 }
 
-//TO DO: Implement KI
-/*void MoteusActuator::set_ki(float ki ) {
+void MoteusActuator::set_ki(float ki ) {
 
-    moteus::PositionMode::Command cmd;
-
-    cmd.feedforward_torque = ki;
-
-    tx_frames[0] = moteus_actuator;
+   return;
    
 }
 
-*/
+
 
 void MoteusActuator::processRxFrames() {
     for (int i = 0; i < rx_frames_.size(); i++) {
@@ -136,8 +132,8 @@ void MoteusActuator::sendJointCommand(float position, float ff_velocity, float f
 
     cmd.velocity = ff_velocity;
 
-    // TODO: complete
-    // tx_frames_[0] = moteus_controller_;
+    // TODO: 
+    tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
 
 
 }
