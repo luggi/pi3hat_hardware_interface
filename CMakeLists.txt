@@ -21,6 +21,7 @@ include_directories(
   include
   include/actuators
   include/ODriveCAN
+  include/moteus
   include/pi3hat
   include/pi3hat_hardware_interface
 )
@@ -67,17 +68,16 @@ target_link_libraries(odrive_actuator PRIVATE
   bcm_host
 )
 
-# # Moteus Actuator Library
-# add_library(moteus_actuator SHARED
-#   src/actuators/moteus_actuator.cpp
-# )
+# Moteus Actuator Library
+add_library(moteus_actuator SHARED
+  src/actuators/moteus_actuator.cpp
+)
 
-# # Link moteus_actuator against actuator_base
-# target_link_libraries(moteus_actuator PRIVATE
-#   actuator_base
-#   #moteus protocol file
-#   pi3hat
-# )
+# Link moteus_actuator against actuator_base
+target_link_libraries(moteus_actuator PRIVATE
+  actuator_base
+  pi3hat
+)
 
 # add compile directive for shared library
 add_library(pi3hat_hardware_interface SHARED

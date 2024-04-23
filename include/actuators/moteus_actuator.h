@@ -26,23 +26,31 @@ public:
         const int direction,
         const float zero_offset,
         const float gear_ratio,
-        const float max_torque,
         const float torque_const,
+        const float max_torque,
         const float pos_min,
         const float pos_max,
+        const float vel_max,
+        const float kp_max,
+        const float kd_max,
+        const float ki_max,
         const int soft_start_duration_ms  
     ): ActuatorBase(
         can_id,
-            can_bus,
-            name,
-            direction,
-            zero_offset,
-            gear_ratio,
-            max_torque,
-            torque_const,
-            pos_min,
-            pos_max,
-            soft_start_duration_ms)
+        can_bus,
+        name,
+        direction,
+        zero_offset,
+        gear_ratio,
+        torque_const,
+        max_torque,
+        pos_min,
+        pos_max,
+        vel_max,
+        kp_max,
+        kd_max,
+        ki_max,
+        soft_start_duration_ms)
     {
         
         options.id = can_id;
@@ -90,24 +98,7 @@ protected:
      * @return MoteusAxisState - Moteus axis state enumeration 
      */
     MoteusAxisState translateState(ActuatorState state);
-    /**
-     * ERROR           = 0,
-        DISARMED        = 1,
-        ARMED           = 2,
-        POSITION_MODE   = 3,
-        VELOCITY_MODE   = 4, (Omitted)
-        TORQUE_MODE     = 5, 
-     * 
-     */
-    std::map<ActuatorState, MoteusAxisState> actuatorToMoteusMap = {
-        {ERROR, kFault},
-        {DISARMED, kstopped},
-        {ARMED,kstopped},
-        {POSITION_MODE,kPosition},
-        {VELOCITY_MODE,kPosition},
-        {TORQUE_MODE,kCurrent}
     
-    };
 private:
 
     mjbots::pi3hat::CanFrame convert_frame(mjbots::moteus::CanFdFrame frame);
