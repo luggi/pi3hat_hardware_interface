@@ -46,6 +46,11 @@ namespace pi3hat_hardware_interface
 
         RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Starting pi3hat_hardware_interface on_init()");
 
+        /**
+         * @brief Initialize state and command vectors
+         * 
+         *  Resize the vectors to the number of joints in the URDF file and set the values to NaN
+         */
         hw_state_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
         hw_state_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
         hw_state_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -110,7 +115,12 @@ namespace pi3hat_hardware_interface
             hw_actuator_ki_limits_.push_back(std::stod(joint.parameters.at("ki_max")));
         }
 
-        // Check if any of the joints have the same CAN ID. IDs should be unique.
+        /**
+         * @brief Ensure that all CAN IDs are unique
+         * 
+         * this is a more stringent requirement, since you could have the same IDs on different channels,
+         * but it causes problems when reading the feedback from the actuators
+         */
         std::unordered_set<int> seenIDs;
         for (int id : hw_actuator_can_ids_) {
             if (!seenIDs.insert(id).second) {
@@ -191,7 +201,9 @@ namespace pi3hat_hardware_interface
                         hw_actuator_kd_limits_[i],
                         hw_actuator_ki_limits_[i],
 
-                        hw_actuator_soft_start_durations_ms_[i]));
+                        hw_actuator_soft_start_durations_ms_[i]
+                    )
+                );
 
                 // allocate the actuator's outgoing CAN Frame Span and assign it
                 hw_actuators_[i]->setTxSpan(allocateTxSpan(TxAllocation::ODRIVE_TX));
@@ -277,7 +289,7 @@ namespace pi3hat_hardware_interface
         for (auto i = 0u; i < 3; i++)
         {
             result = pi3hat_->Cycle(pi3hat_input_);
-            busy_wait_us(500000); // wait for 1 second
+            busy_wait_us(500000); // wait for 0.5 second
         }
 
         // give the input to the distribute_rx_input function
@@ -294,7 +306,7 @@ namespace pi3hat_hardware_interface
         return hardware_interface::CallbackReturn::SUCCESS;
     }
 
-    // TODO: Update the state interfaces 
+    // TODO: Update the state interfaces . Do we want to add Temperature, Voltage?
     std::vector<hardware_interface::StateInterface> Pi3HatHardwareInterface::export_state_interfaces()
     {
         std::vector<hardware_interface::StateInterface> state_interfaces;
@@ -390,7 +402,10 @@ namespace pi3hat_hardware_interface
         mjbots::pi3hat::Pi3Hat::Output result = pi3hat_->Cycle(pi3hat_input_);
         busy_wait_us(1000000); // wait for 1 second
 
-        // try 3 times to ensure the actuators are enabled
+        /**
+         * @brief Attempts 3 times to set all actuators to position mode.
+         *      If all actuators are not in position mode after 3 attempts, return an error.
+         */
         for (auto attempt = 0u; attempt < 3; attempt++)
         {
             // onActivate() -> Enable all actuators
@@ -400,7 +415,7 @@ namespace pi3hat_hardware_interface
                 hw_actuators_[i]->setState(ActuatorState::POSITION_MODE);
             }
             result = pi3hat_->Cycle(pi3hat_input_);
-            busy_wait_us(200000); // wait for 0.5 second
+            busy_wait_us(200000); // wait for 0.2 second
 
             if (result.error)
             {
@@ -442,43 +457,46 @@ namespace pi3hat_hardware_interface
     {
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
-            switch (hw_actuator_can_protocols_[i])
-            {
-                    // TODO: Add support for other CAN protocols
-                case CanProtocol::CHEETAH:
-                    // We send a command of all zeroes to the actuator before disabling it
-                    // This is to prevent the actuator from moving if we re-enable it later
-                    std::copy(std::begin(cheetahSetIdleCmdMsg), std::end(cheetahSetIdleCmdMsg), std::begin(pi3hat_input_.tx_can[i].data));
-                    break;
-                case CanProtocol::ODRIVE:
-                {
-                    hw_actuators_[i]->setState(ActuatorState::DISARMED);
-                    break;
-                }
-                default:
-                    RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to deactivate: unknown CAN protocol");
-                    return hardware_interface::CallbackReturn::ERROR;
-            }
+            hw_actuators_[i]->setState(ActuatorState::DISARMED);
+
+            // switch (hw_actuator_can_protocols_[i])
+            // {
+            //         // TODO: Add support for other CAN protocols
+            //     case CanProtocol::CHEETAH:
+            //         // We send a command of all zeroes to the actuator before disabling it
+            //         // This is to prevent the actuator from moving if we re-enable it later
+            //         std::copy(std::begin(cheetahSetIdleCmdMsg), std::end(cheetahSetIdleCmdMsg), std::begin(pi3hat_input_.tx_can[i].data));
+            //         break;
+            //     case CanProtocol::ODRIVE:
+            //     {
+            //         hw_actuators_[i]->setState(ActuatorState::DISARMED);
+            //         break;
+            //     }
+            //     default:
+            //         RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to deactivate: unknown CAN protocol");
+            //         return hardware_interface::CallbackReturn::ERROR;
+            // }
 
         }
+        // TODO: why do we do this for loop? can it be removed? Is the redundancy safer?
         pi3hat_->Cycle(pi3hat_input_);
         busy_wait_us(1000000); // wait for 1 second
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
         {
-            switch (hw_actuator_can_protocols_[i])
-            {
-                // TODO: Add support for other CAN protocols
-            case CanProtocol::CHEETAH:
-                std::copy(std::begin(cheetahDisableMsg), std::end(cheetahDisableMsg), std::begin(pi3hat_input_.tx_can[i].data));
-                break;
-            case CanProtocol::ODRIVE:
-                hw_actuators_[i]->setState(ActuatorState::DISARMED);
-                break;
-            default:
-                RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to deactivate: unknown CAN protocol");
-                return hardware_interface::CallbackReturn::ERROR;
-            }
-
+            hw_actuators_[i]->setState(ActuatorState::DISARMED);
+            // switch (hw_actuator_can_protocols_[i])
+            // {
+            //     // TODO: Add support for other CAN protocols
+            // case CanProtocol::CHEETAH:
+            //     std::copy(std::begin(cheetahDisableMsg), std::end(cheetahDisableMsg), std::begin(pi3hat_input_.tx_can[i].data));
+            //     break;
+            // case CanProtocol::ODRIVE:
+            //     hw_actuators_[i]->setState(ActuatorState::DISARMED);
+            //     break;
+            // default:
+            //     RCLCPP_ERROR(rclcpp::get_logger("Pi3HatHardwareInterface"), "Failed to deactivate: unknown CAN protocol");
+            //     return hardware_interface::CallbackReturn::ERROR;
+            // }
         }
         pi3hat_->Cycle(pi3hat_input_);
         busy_wait_us(1000000); // wait for 1 second
@@ -542,7 +560,7 @@ namespace pi3hat_hardware_interface
     hardware_interface::return_type Pi3HatHardwareInterface::read(
         const rclcpp::Time & /*time*/, const rclcpp::Duration &period)
     {
-        // Reading is done in the write() method
+        // Reading is done in the write() method due to how the Pi3Hat Cycle() method works
         return hardware_interface::return_type::OK;
     }
 
@@ -647,6 +665,7 @@ namespace pi3hat_hardware_interface
             // give the input to the distribute_rx_input function
             distribute_rx_input(result);
 
+            // TODO: refactor this loop to include all actuator types.
             for (auto i = 0u; i < hw_state_positions_.size(); i++)
             {
                 // j is the index of the can frame in the pi3hat input
@@ -694,7 +713,7 @@ namespace pi3hat_hardware_interface
     std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> Pi3HatHardwareInterface::allocateTxSpan(size_t size)
     {
         // Implementation to allocate a Span for Tx
-        // This could be more sophisticated to handle non-contiguous allocations
+        //* note: This could be more sophisticated to handle non-contiguous allocations
         size_t start = nextTxStart;
         if (start + size <= tx_can_frames_.size())
         {
@@ -766,6 +785,7 @@ namespace pi3hat_hardware_interface
         uint32_t raw_id = frame.id;
         uint8_t bus = frame.bus;
         
+        // First we assume that the raw_id represents a motor's ID (in the case of a Moteus)
         int index = Pi3HatHardwareInterface::findIndex(hw_actuator_can_ids_, raw_id);
         if (index >= 0 && index < hw_state_positions_.size() && hw_actuator_can_channels_[index] == bus) 
         {

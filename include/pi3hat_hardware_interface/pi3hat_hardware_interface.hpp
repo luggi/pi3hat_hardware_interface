@@ -74,14 +74,26 @@ namespace pi3hat_hardware_interface
             const rclcpp_lifecycle::State &previous_state) override;
 
         /**
-         * Does opposite of on_configure()
+         * @brief Does opposite of on_configure()
+         * 
+         * @param previous_state
         */
         hardware_interface::CallbackReturn on_cleanup(
             const rclcpp_lifecycle::State &previous_state) override;
 
-
+        /**
+         * @brief Exposes state interfaces for proper initialization of ROS2 control topics
+         * 
+         * @return std::vector<hardware_interface::StateInterface> 
+         */
         std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
+        /**
+         * @brief Exports the command interfaces for proper initialization of ROS2 control topics
+         * 
+         * 
+         * @return std::vector<hardware_interface::CommandInterface> 
+         */
         std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
         /**
@@ -108,17 +120,41 @@ namespace pi3hat_hardware_interface
         hardware_interface::CallbackReturn on_error(
             const rclcpp_lifecycle::State &previous_state) override;
 
-
+        /**
+         * @brief Core function of the ROS2 control loop. In the case of the Pi3Hat, this function does nothing.
+         * 
+         * @param time 
+         * @param period 
+         * @return hardware_interface::return_type 
+         */
         hardware_interface::return_type read(
             const rclcpp::Time &time, const rclcpp::Duration &period) override;
 
+        /**
+         * @brief Carries out CAN frame writing and reading to control and read feedback from actuators.
+         * 
+         * @param time 
+         * @param period 
+         * @return hardware_interface::return_type 
+         */
         hardware_interface::return_type write(
             const rclcpp::Time &time, const rclcpp::Duration &period) override;
 
-
+        /**
+         * @brief Allocates a number of frames for an actuator within the Span object of the MJBots Pi3Hat
+         * 
+         * @param size -- number of frames to allocate
+         * @return std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> 
+         */
         std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> allocateTxSpan(size_t size);
 
-        // Utility function to distribute incoming CAN frames to actuators
+        /**
+         * @brief Utility function to distribute incoming CAN frames to actuators
+         * 
+         * @param result the status object from a Pi3Hat cycle command
+         * @return true indicates successful distribution
+         * @return false indicates no frames were distributed successfully
+         */
         bool distribute_rx_input(mjbots::pi3hat::Pi3Hat::Output result);
         
     private:
@@ -152,7 +188,7 @@ namespace pi3hat_hardware_interface
                     return i; // Found the element, return its index
                 }
             }
-            return -1; // Element not found, return std::nullopt
+            return -1; // Element not found, return -1
         };
 
         // Enum for CAN protocol types: cheetah, myactuator, or moteus

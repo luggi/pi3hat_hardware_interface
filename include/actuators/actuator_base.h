@@ -161,17 +161,41 @@ public:
      */
     virtual bool on_init() = 0;
 
-    // Virtual function to command controller state
+    /**
+     * @brief Set the State object
+     * 
+     * @param state 
+     */
     virtual void setState(ActuatorState state) = 0;
 
-    // Getter for the current state of the motor controller
+    /**
+     * @brief Get the current state of the motor controller
+     * 
+     * @return ActuatorState 
+     */
     virtual ActuatorState getState() {return motor_state_.current_actuator_state_;};
 
+    /**
+     * @brief Get the torque of the motor 
+     * 
+     * @return double 
+     */
     virtual double getEffort() {return motor_state_.torque_;};
 
+    /**
+     * @brief Get the Velocity of the motor
+     * 
+     * @return double 
+     */
     virtual double getVelocity() {return motor_state_.velocity_;};
 
+    /**
+     * @brief Get the Position of the motor
+     * 
+     * @return double 
+     */
     virtual double getPosition() {return motor_state_.position_;};    
+    
     /**
      * @brief Sets the zero position of the joint
      * 
@@ -250,6 +274,10 @@ public:
 
     virtual void setTxSpan(std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> tx_frames) = 0;
     
+    /**
+     * @brief Marks the frames in the actuator's Tx span as invalid
+     * 
+     */
     virtual void invalidateSpan();
 
     /**
