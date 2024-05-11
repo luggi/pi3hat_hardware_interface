@@ -192,11 +192,11 @@ def generate_launch_description():
     nodes = [
         control_node,
         robot_state_pub_node,
-        joint_state_broadcaster_spawner,
+        # joint_state_broadcaster_spawner,
         imu_sensor_broadcaster_spawner,
-        # delay_joint_state_broadcaster_spawner_after_ros2_control_node,
+        delay_joint_state_broadcaster_spawner_after_ros2_control_node,
         # # delay_rviz_after_joint_state_broadcaster_spawner,
-        # delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
+        delay_robot_controller_spawner_after_joint_state_broadcaster_spawner,
     ]
 
     return LaunchDescription(

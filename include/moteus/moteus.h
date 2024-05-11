@@ -89,13 +89,14 @@ class Controller {
     Options() {}
   };
 
-  Controller(const Options& options = {}) : options_(options) {
+  Controller(Options options = {}) : options_(std::move(options)) 
+ {
 
     WriteCanData query_write(&query_frame_);
     query_reply_size_ = Query::Make(&query_write, options_.query_format);
   }
 
-  const Options& options() const { return options_; }
+ Options& options()  { return options_; }
 
   struct Result {
     CanFdFrame frame;
@@ -344,7 +345,7 @@ class Controller {
     return result;
   }
 
-  const Options options_;
+  Options options_;
   CanData query_frame_;
   uint8_t query_reply_size_ = 0;
   CanFdFrame output_frame_;
