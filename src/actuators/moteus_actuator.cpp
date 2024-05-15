@@ -199,6 +199,14 @@ void MoteusActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
         motor_state_.error = false;
     }
 
+    if (result.values.mode == mjbots::moteus::Mode::kPosition)
+    {
+        motor_state_.current_actuator_state_ =  ActuatorState::POSITION_MODE
+        
+    }
+
+
+
     /*
         appropriately update these:
 

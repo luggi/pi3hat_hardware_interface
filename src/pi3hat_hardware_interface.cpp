@@ -561,6 +561,7 @@ namespace pi3hat_hardware_interface
             switch (hw_actuator_can_protocols_[i])
             {
                 case CanProtocol::ODRIVE:
+                case CanProtocol::MOTEUS:
                 {
                     hw_actuators_[i]->sendJointCommand(hw_command_positions_[i], hw_command_velocities_[i], hw_command_efforts_[i]);
                     break;
