@@ -6,7 +6,22 @@ This repository provides a ros2_control hardware interface for the [mjbots pi3ha
 - Raspberry Pi 4 running Ubuntu 22.04 and ROS2 Humble [(tested with this image)](https://github.com/ros-realtime/ros-realtime-rpi4-image/releases/tag/22.04.1_v5.15.39-rt42-raspi_ros2_humble)
 - pi3hat r4.4 or newer (CAN doesn't seem to work on pi3hat r4.2)
 - Recommended: configure ros2_control for realtime operation as described [here](https://control.ros.org/master/doc/ros2_control/controller_manager/doc/userdoc.html#determinism)
+    - Note: the realtime scheduling priorities described in this documentation might be too strong for a resource constrained system like the Pi and cause starvation of critical OS processes.
 - Create a workspace `/home/pi/ros2_ws`
+- Install the following packages:
+```
+sudo apt install python3-colcon-common-extensions
+sudo apt-get install build-essential
+sudo apt install ros-humble-ros2-control
+sudo apt install ros-humble-ros2-controllers
+sudo apt install ros-humble-xacro
+sudo apt install ros-dev-tools
+sudo apt-get install libraspberrypi-dev
+```
+
+## Notes:
+- All of the listed items in "Issues" will probably occur and need to be dealt with when configuring a system...
+- There might be other configuration steps needed other than what is listed here in order to get the necessary dependencies to play nice with each other.
 
 ## How to configure
 - An example URDF is contained in `test_state_publisher.urdf.xacro`.

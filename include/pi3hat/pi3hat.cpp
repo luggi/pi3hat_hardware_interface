@@ -1310,7 +1310,13 @@ class Pi3Hat::Impl {
       bus_packets.resize(0);
     }
     for (size_t i = 0; i < input.tx_can.size(); i++) {
-      // skip invalid frames
+      /**
+       * @brief skip invalid frames.
+       * 
+       * this is a performance optimization to avoid sending invalid frames (removes redundancy)
+       * it is specifically implemented to allow for sequences of frames to be sent in a single cycle
+       * (which is used for an ODrive implementation where each command needs its own frame).
+       */
       if (input.tx_can[i].valid == 0) { 
         continue; 
       }

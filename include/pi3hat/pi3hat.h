@@ -65,7 +65,10 @@ struct CanFrame {
   /// same bus.
   bool expect_reply = false;
 
-  // indicates whether this CanFrame is valid or not
+  // indicates whether this CanFrame is valid or not.
+  // since it defaults to true, it does not change default behavior.
+  // this is used for the ODrive protocol since the ODrive protocol 
+  // uses sequences of CAN frames instead of packing multiple commands into one frame.
   bool valid = true;
 };
 

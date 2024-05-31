@@ -96,9 +96,16 @@ void ODriveActuator::setState(ActuatorState state) {
 
 void ODriveActuator::sendJointCommand(float position, float ff_velocity, float ff_torque) {
     if (motor_state_.current_actuator_state_ == ActuatorState::POSITION_MODE) {
+        // calculate the servo command raw values
         float position_command = gear_ratio_ * direction_ * (position + zero_offset_);
         float ff_velocity = gear_ratio_ * direction_ * ff_velocity;
         float ff_torque = direction_ * ff_torque / gear_ratio_;
+
+        // clamp the values to the limits
+        position_command = std::clamp(position_command, pos_min_, pos_max_);
+        ff_velocity = std::clamp(ff_velocity, -vel_max_, vel_max_);
+        ff_torque = std::clamp(ff_torque, -max_torque_, max_torque_);
+
         odrive_can_.setPosition(tx_frames_[0], position_command, ff_velocity, ff_torque);
         validateFrame(0);
 

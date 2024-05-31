@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <algorithm>
 #include <limits>
 
 #include "pi3hat/pi3hat.h"
