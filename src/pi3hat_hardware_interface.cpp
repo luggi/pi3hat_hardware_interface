@@ -767,7 +767,7 @@ namespace pi3hat_hardware_interface
         } 
     }
 
-    void Pi3HatHardwareInterface::update_state_interfaces()
+    void Pi3HatHardwareInterface::update_actuator_state_interfaces()
     {
         // Update the state interfaces
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
@@ -775,6 +775,10 @@ namespace pi3hat_hardware_interface
             hw_state_positions_[i] = hw_actuators_[i]->getPosition();
             hw_state_velocities_[i] = hw_actuators_[i]->getVelocity();
             hw_state_efforts_[i] = hw_actuators_[i]->getEffort();
+            hw_state_voltages_[i] = hw_actuators_[i]->getVoltage();
+            hw_state_temperatures_[i] = hw_actuators_[i]->getTemperature();
+            hw_state_errors_[i] = hw_actuators_[i]->getError();
+            hw_state_states_[i] = hw_actuators_[i]->getState();
         }
     }
 
