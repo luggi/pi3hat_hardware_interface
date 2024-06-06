@@ -179,6 +179,32 @@ namespace pi3hat_hardware_interface
                  * -> push back a shared pointer to a new moteus actuator instance
                  * -> allocate the actuator's outgoing CAN Frame Span and assign it
                  */
+                // Create new actuator and add shared pointer to vector
+                hw_actuators_.push_back(
+                    std::make_shared<MoteusActuator>(
+                        hw_actuator_can_ids_[i],
+                        hw_actuator_can_channels_[i],
+                        info_.joints[i].name, // TODO: either add this parameter to this class and the URDF or create a nameless constructor in actuator
+                        hw_actuator_axis_directions_[i],
+                        hw_actuator_position_offsets_[i],
+                        hw_actuator_gear_ratios_[i],
+                        hw_actuator_torque_constants_[i],
+                        hw_actuator_effort_limits_[i],
+                        hw_actuator_position_mins_[i],
+                        hw_actuator_position_maxs_[i],
+                        hw_actuator_velocity_limits_[i],
+                        hw_actuator_kp_limits_[i],
+                        hw_actuator_kd_limits_[i],
+                        hw_actuator_ki_limits_[i],
+
+                        hw_actuator_soft_start_durations_ms_[i]
+                    )
+                );
+
+                // allocate the actuator's outgoing CAN Frame Span and assign it
+                hw_actuators_[i]->setTxSpan(allocateTxSpan(TxAllocation::MOTEUS_TX));
+                hw_actuators_[i]->invalidateSpan();
+                RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Created an Moteus Actuator at joint %d and allocated %i CAN Frames", i, TxAllocation::MOTEUS_TX);
             }
             case CanProtocol::ODRIVE:
             {
@@ -686,6 +712,17 @@ namespace pi3hat_hardware_interface
                 //     }
                 //     break;
                 // }
+                case CanProtocol::MOTEUS:
+                {
+                    // Read the feedback from the actuators
+                    hw_actuators_[i]->processRxFrames();
+
+                    hw_state_positions_[i] = hw_actuators_[i]->getPosition();
+                    hw_state_velocities_[i] = hw_actuators_[i]->getVelocity();
+                    hw_state_efforts_[i] = hw_actuators_[i]->getEffort();
+                    break;
+                }
+
                 case CanProtocol::ODRIVE:
                 {
                     // Read the feedback from the actuators
