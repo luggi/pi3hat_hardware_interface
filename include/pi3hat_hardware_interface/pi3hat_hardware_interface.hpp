@@ -271,10 +271,16 @@ namespace pi3hat_hardware_interface
         std::vector<double> hw_actuator_kd_limits_;
         std::vector<double> hw_actuator_ki_limits_;
 
-        // Actuator states
+        // Actuator motor states
         std::vector<double> hw_state_positions_;
         std::vector<double> hw_state_velocities_;
         std::vector<double> hw_state_efforts_;
+
+        // Actuator status/misc states
+        std::vector<double> hw_state_temperatures_;
+        std::vector<int> hw_state_errors_;
+        std::vector<int> hw_state_states_;
+        std::vector<double> hw_state_voltages_;
 
         // Actuator commands
         std::vector<double> hw_command_positions_;

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <algorithm>
 #include <limits>
 
 #include "pi3hat/pi3hat.h"
@@ -62,23 +63,28 @@ enum ActuatorState {
 
 struct MotorState { 
     ActuatorState current_actuator_state_ = ActuatorState::DISARMED;
+    uint8_t internal_mode_ = 0;
     bool connected = false;
     bool error = false;
-    int error_reason = 0;
+    uint32_t error_reason = 0;
     float position_ = 0.0f;
     float velocity_ = 0.0f;
     float torque_ = 0.0f;
-    float temperature = 0.0f;
+    // set to quiet_NaN because they are not always available
+    float temperature_ = std::numeric_limits<float>::quiet_NaN();
+    float voltage_ = std::numeric_limits<float>::quiet_NaN();
 
     bool operator==(const MotorState& other) const {
         return current_actuator_state_ == other.current_actuator_state_ &&
-               connected == other.connected &&
-               error == other.error &&
-               error_reason == other.error_reason &&
-               position_ == other.position_ &&
-               velocity_ == other.velocity_ &&
-               torque_ == other.torque_ &&
-               temperature == other.temperature;
+                internal_mode_ == other.internal_mode_ &&
+                connected == other.connected &&
+                error == other.error &&
+                error_reason == other.error_reason &&
+                position_ == other.position_ &&
+                velocity_ == other.velocity_ &&
+                torque_ == other.torque_ &&
+                temperature_ == other.temperature_ &&
+                voltage_ == other.voltage_;
     }
 
     bool operator!=(const MotorState& other) const {
@@ -194,7 +200,36 @@ public:
      * 
      * @return double 
      */
-    virtual double getPosition() {return motor_state_.position_;};    
+    virtual double getPosition() {return motor_state_.position_;};
+
+    /**
+     * @brief Get the Temperature of the motor
+     * @default NaN
+     * 
+     * @return double
+     */
+    virtual double getTemperature() {return motor_state_.temperature_;};
+
+    /**
+     * @brief Get the bus voltage of the motor controller
+     * @default NaN
+     * @return double 
+     */
+    virtual double getVoltage() {return motor_state_.voltage_;};
+
+    /**
+     * @brief Get the error state of the motor controller
+     * 
+     * @return 32 bit integer representing the error state specific to the motor controller
+     */
+    virtual uint32_t getErrorReason() {return motor_state_.error_reason;};
+
+    /**
+     * @brief Get the internal mode of the motor controller (READ ONLY)
+     * 
+     * @return uint8_t motor controller specific mode
+     */
+    virtual uint8_t getInternalMode() {return motor_state_.internal_mode_;};
     
     /**
      * @brief Sets the zero position of the joint
