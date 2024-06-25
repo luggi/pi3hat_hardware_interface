@@ -220,6 +220,7 @@ namespace pi3hat_hardware_interface
                 hw_actuators_[i]->setTxSpan(allocateTxSpan(TxAllocation::MOTEUS_TX));
                 hw_actuators_[i]->invalidateSpan();
                 RCLCPP_INFO(rclcpp::get_logger("Pi3HatHardwareInterface"), "Created an Moteus Actuator at joint %d and allocated %i CAN Frames", i, TxAllocation::MOTEUS_TX);
+                break;
             }
             case CanProtocol::ODRIVE:
             {
@@ -361,14 +362,14 @@ namespace pi3hat_hardware_interface
                 info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &hw_state_velocities_[i]));
             state_interfaces.emplace_back(hardware_interface::StateInterface(
                 info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_state_efforts_[i]));
-            state_interfaces.emplace_back(hardware_interface::StateInterface(
-                info_.joints[i].name, hardware_interface::HW_IF_TEMPERATURE, &hw_state_temperatures_[i]));
-            state_interfaces.emplace_back(hardware_interface::StateInterface(
-                info_.joints[i].name, 'error', &hw_state_errors_[i]));
-            state_interface.emplace_back(hardware_interface::StateInterface(
-                info_.joints[i].name, 'state', &hw_state_states_[i]));
-            state_interface.emplace_back(hardware_interface::StateInterface(
-                info_.joints[i].name, 'voltage', &hw_state_voltages_[i]));
+            //state_interfaces.emplace_back(hardware_interface::StateInterface(
+            //    info_.joints[i].name, hardware_interface::HW_IF_TEMPERATURE, &hw_state_temperatures_[i]));
+            // state_interfaces.emplace_back(hardware_interface::StateInterface(
+            //     info_.joints[i].name, 'error', &hw_state_errors_[i]));
+            // state_interface.emplace_back(hardware_interface::StateInterface(
+            //     info_.joints[i].name, 'state', &hw_state_states_[i]));
+            // state_interface.emplace_back(hardware_interface::StateInterface(
+            //     info_.joints[i].name, 'voltage', &hw_state_voltages_[i]));
         }
 
         // Add IMU state interfaces
@@ -475,7 +476,7 @@ namespace pi3hat_hardware_interface
                 distribute_rx_input(result);
             }
 
-            int enabled_count = 0;
+            unsigned int enabled_count = 0;
 
             // Read the feedback from the actuators
             for (auto i = 0u; i < hw_state_positions_.size(); i++) 
@@ -609,6 +610,7 @@ namespace pi3hat_hardware_interface
     hardware_interface::return_type Pi3HatHardwareInterface::read(
         const rclcpp::Time & /*time*/, const rclcpp::Duration &period)
     {
+        (void)period;
         // Reading is done in the write() method due to how the Pi3Hat Cycle() method works
         return hardware_interface::return_type::OK;
     }
@@ -793,7 +795,7 @@ namespace pi3hat_hardware_interface
         } 
     }
 
-    void Pi3HatHardwareInterface::update_actuator_state_interfaces()
+    void Pi3HatHardwareInterface::update_state_interfaces()
     {
         // Update the state interfaces
         for (auto i = 0u; i < hw_state_positions_.size(); i++)
@@ -803,7 +805,7 @@ namespace pi3hat_hardware_interface
             hw_state_efforts_[i] = hw_actuators_[i]->getEffort();
             hw_state_voltages_[i] = hw_actuators_[i]->getVoltage();
             hw_state_temperatures_[i] = hw_actuators_[i]->getTemperature();
-            hw_state_errors_[i] = hw_actuators_[i]->getError();
+            hw_state_errors_[i] = hw_actuators_[i]->getErrorReason();
             hw_state_states_[i] = hw_actuators_[i]->getState();
         }
     }

@@ -30,6 +30,7 @@ void MoteusActuator::setState(ActuatorState state) {
         case ActuatorState::POSITION_MODE:
         case ActuatorState::VELOCITY_MODE:
         case ActuatorState::TORQUE_MODE: 
+        case ActuatorState::ARMED:
         {
             // TODO: check if its okay to send a position command -> were we in an error state? etc.
             mjbots::moteus::PositionMode::Command cmd;
@@ -70,6 +71,17 @@ void MoteusActuator::setPosition( float position) {
 
 }
 
+void MoteusActuator::setZero()
+{
+    mjbots::moteus::PositionMode::Command cmd;
+
+    cmd.position = 0.0;
+    cmd.velocity = 0.0;
+
+    // TODO:
+     tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
+}
+
 void MoteusActuator::setVelocity(float velocity) {
 
     mjbots::moteus::PositionMode::Command cmd;
@@ -78,6 +90,17 @@ void MoteusActuator::setVelocity(float velocity) {
     cmd.position = std::numeric_limits<double>::quiet_NaN();
 
     // TODO: 
+    tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
+}
+
+void MoteusActuator::setTorque(float torque)
+{
+    mjbots::moteus::PositionMode::Command cmd;
+
+    cmd.kp_scale = 0.0;
+    cmd.kd_scale = 0.0;
+    cmd.feedforward_torque = torque;
+
     tx_frames_[0] = convert_frame(moteus_controller_.MakePosition(cmd));
 }
 
@@ -104,15 +127,14 @@ void MoteusActuator::set_kd(float kd ) {
 }
 
 void MoteusActuator::set_ki(float ki ) {
-
+   (void)ki;
    return;
-   
 }
 
 
 
 void MoteusActuator::processRxFrames() {
-    for (int i = 0; i < rx_frames_.size(); i++) {
+    for (unsigned int i = 0; i < rx_frames_.size(); i++) {
         if (rx_frames_[i].valid) {
             readCANFrame(rx_frames_[i]);
         }
@@ -159,6 +181,20 @@ void MoteusActuator::ESTOP() {
 
 }
 
+bool MoteusActuator::updateStateVars() 
+{
+    // copy the current state
+    MotorState new_motor_state_ = motor_state_;
+    MotorCommand new_motor_command_ = motor_command_;
+
+    return true;
+}
+
+std::string printErrorMessage() 
+{
+    return "error?";
+}
+
 void MoteusActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
 
     // 1. convert the incoming pi3hat frame to a moteus frame
@@ -187,7 +223,7 @@ void MoteusActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
     }
     if (!std::isnan(result.values.temperature))
     {
-         motor_state_.temperature =result.values.temperature;
+         motor_state_.temperature_ = result.values.temperature;
     }
     
     motor_state_.error_reason = result.values.fault;
@@ -201,7 +237,7 @@ void MoteusActuator::readCANFrame(mjbots::pi3hat::CanFrame frame) {
 
     if (result.values.mode == mjbots::moteus::Mode::kPosition)
     {
-        motor_state_.current_actuator_state_ =  ActuatorState::POSITION_MODE
+        motor_state_.current_actuator_state_ =  ActuatorState::POSITION_MODE;
         
     }
 

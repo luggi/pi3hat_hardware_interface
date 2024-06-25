@@ -80,6 +80,8 @@ public:
     void sendJointCommand(float position, float ff_velocity, float ff_torque) override;
     void setPosition(float position) override;
     void setVelocity(float velocity) override;
+    void setTorque(float torque) override;
+    void setZero() override;
     void set_kp(float kp) override;
     void set_kd(float kd) override;
     void set_ki(float ki) override;
@@ -89,6 +91,18 @@ public:
     void ESTOP() override;
     void readCANFrame(mjbots::pi3hat::CanFrame frame) override;
     void clearErrors() override;
+    bool updateStateVars() override;
+    std::string printErrorMessage() override;
+
+    void setTxSpan(std::shared_ptr<mjbots::pi3hat::Span<mjbots::pi3hat::CanFrame>> tx_frames) override
+    {
+        this->tx_frames_ = *tx_frames;
+
+        // loop through span and set bus
+        for (size_t i = 0; i < tx_frames_.size(); i++) {
+            tx_frames_[i].bus = this->can_bus_;
+        }
+    };
 
 protected:
     /**

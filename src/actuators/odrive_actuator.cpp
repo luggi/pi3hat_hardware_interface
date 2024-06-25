@@ -343,7 +343,7 @@ bool ODriveActuator::updateStateVars() {
     new_motor_state_.position_ = odrive_motor_state_.estimated_position;
     new_motor_state_.velocity_ = odrive_motor_state_.estimated_velocity;
     new_motor_state_.torque_ = odrive_motor_state_.estimated_current * torque_const_;
-    new_motor_state_.temperature = odrive_state_.temperature;
+    new_motor_state_.temperature_ = odrive_state_.temperature;
 
     // update if something changed
     if (motor_state_ != new_motor_state_ || motor_command_ != new_motor_command_) {
